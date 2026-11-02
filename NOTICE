@@ -4,17 +4,24 @@ tom
 This crate family is a Rust port of the TypeScript `pi` SDK, not a verbatim
 copy of it.
 
-Upstream project
-----------------
+Upstream projects
+-----------------
 
     pi — https://github.com/earendil-works/pi
     Copyright (c) 2025 Mario Zechner
     Licensed under the MIT License.
 
-The `tom-*` crates re-implement the original MIT-licensed TypeScript SDK in
-Rust. The license text in `LICENSE` therefore carries both the upstream
-copyright notice and the notice for the Rust port, as required by the MIT
-License's retention clause.
+    pi-rust — https://github.com/bigfish1913/pi-rust
+    Copyright (c) 2026 BigFish
+    Licensed under the MIT License.
+
+The `tom-*` crates descend from `pi-rust`, the Rust port of the original
+MIT-licensed TypeScript `pi` SDK. `tom` is that port renamed: the crate
+family, binary and configuration paths were renamed from `rpi` to `tom`, so
+`pi-rust` is this repository's direct parent project. The license text in
+`LICENSE` therefore carries the upstream copyright notices, the `pi-rust`
+notice and the notice for the Rust port, as required by the MIT License's
+retention clause.
 
 Third-party dependencies
 ------------------------

@@ -1,15 +1,5 @@
 # tom — a Rust-native coding-agent runtime
 
-[![crates.io](https://img.shields.io/crates/v/tom-cli.svg)](https://crates.io/crates/tom-cli)
-[![downloads](https://img.shields.io/crates/d/tom-cli.svg)](https://crates.io/crates/tom-cli)
-[![docs.rs](https://docs.rs/tom-cli/badge.svg)](https://docs.rs/tom-cli)
-[![license](https://img.shields.io/crates/l/tom-cli.svg)](#license)
-[![MSRV](https://img.shields.io/badge/MSRV-1.88-blue.svg)](#install)
-[![CI](https://github.com/bigfish1913/tom/actions/workflows/ci.yml/badge.svg)](https://github.com/bigfish1913/tom/actions/workflows/ci.yml)
-[![GitHub stars](https://img.shields.io/github/stars/bigfish1913/tom?style=flat)](https://github.com/bigfish1913/tom/stargazers)
-[![Latest release](https://img.shields.io/github/v/release/bigfish1913/tom)](https://github.com/bigfish1913/tom/releases/latest)
-[![Best of Agent Harnesses](https://img.shields.io/badge/%F0%9F%8F%86_Best_of-Agent_Harnesses-5ac4bf)](https://github.com/RyanAlberts/best-of-Agent-Harnesses)
-
 `tom` is a library-first coding-agent runtime written in Rust, plus a terminal
 agent built on top of it. Ten composable crates span provider adapters, a
 durable crash-resumable agent loop, a reusable runtime, a terminal UI, and a
@@ -466,25 +456,6 @@ build/test commands and the repository layout, and the
 through [SECURITY.md](SECURITY.md), not a public issue.
 
 The whole test suite runs offline: `cargo test --workspace --locked`.
-
-## Community
-
-Questions, ideas and early builds are welcome in either group:
-
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <img src="docs/images/weixin.png" width="230" alt="WeChat group QR code"><br>
-      <sub><b>WeChat</b> — <a href="https://weixin.qq.com/g/AQYAAD8z3FmKPk143hi_HUVOtGvNqlHWMtVZu1VGGB_46JKoNpyhJvS7kDwQwUTr">微信交流群</a></sub>
-    </td>
-    <td align="center" width="50%">
-      <img src="docs/images/tg.png" width="230" alt="Telegram group QR code"><br>
-      <sub><b>Telegram</b> — <a href="https://t.me/+7YfN4TZPP7Y0M2Q1">t.me/+7YfN4TZPP7Y0M2Q1</a></sub>
-    </td>
-  </tr>
-</table>
-
-<sub>Group invite codes expire — WeChat's rotates every few days. If a QR code stops working, open an issue and it will be refreshed.</sub>
 
 ## Acknowledgements
 
