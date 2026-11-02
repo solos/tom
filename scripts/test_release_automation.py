@@ -41,7 +41,7 @@ class ReleaseGateTests(unittest.TestCase):
             self.assertFalse(automation.release_pr(pr, self.commit))
 
     def test_fork_cannot_spoof_a_release_branch_name(self):
-        self.pr["head"]["repo"]["full_name"] = "contributor/pi-rust"
+        self.pr["head"]["repo"]["full_name"] = "contributor/tom"
         self.assertFalse(automation.release_pr(self.pr, self.commit))
         self.pr["head"]["repo"] = None
         self.assertFalse(automation.release_pr(self.pr, self.commit))
@@ -56,7 +56,7 @@ class ReleaseGateTests(unittest.TestCase):
             automation.check_version("0.3.25", [], self.commit, "b" * 40)
 
     def test_fork_and_pull_request_events_are_denied_before_api_access(self):
-        for repository, event, ref in (("fork/pi-rust", "push", "refs/heads/main"),
+        for repository, event, ref in (("fork/tom", "push", "refs/heads/main"),
                                        (automation.REPOSITORY, "pull_request", "refs/pull/1/merge"),
                                        (automation.REPOSITORY, "push", "refs/heads/dev")):
             with patch.dict(os.environ, {"GITHUB_REPOSITORY": repository,
@@ -87,13 +87,13 @@ class ReleaseGateTests(unittest.TestCase):
         workspace = tomllib.loads((root / "Cargo.toml").read_text(encoding="utf-8"))["workspace"]
         expected = set()
         for member in workspace["members"]:
-            if member.startswith("crates/rpi-"):
+            if member.startswith("crates/tom-"):
                 package = tomllib.loads((root / member / "Cargo.toml").read_text(encoding="utf-8"))["package"]
                 if package.get("publish", True):
                     expected.add(package["name"])
         self.assertEqual({package["name"] for package in packages}, expected)
         self.assertEqual(len(packages), len(expected))
-        self.assertTrue(all(p["release"] and p["version_group"] == "rpi" for p in packages))
+        self.assertTrue(all(p["release"] and p["version_group"] == "tom" for p in packages))
         self.assertEqual(sum(p.get("changelog_update", False) for p in packages), 1)
 
     def test_release_plz_linked_changelog_heading_allows_the_release(self):
@@ -163,14 +163,14 @@ class ReleaseVersionTests(unittest.TestCase):
 class ChannelReadinessTests(unittest.TestCase):
     def setUp(self):
         self.tag = "v0.3.25"
-        self.manifest = {"schema_version": 1, "name": "rpi-cli", "version": "0.3.25",
+        self.manifest = {"schema_version": 1, "name": "tom-cli", "version": "0.3.25",
                          "tag": self.tag, "repository": channels.REPOSITORY,
                          "source_commit": "a" * 40, "targets": {}}
         self.release = {"draft": False, "prerelease": False, "tag_name": self.tag,
-                        "assets": [{"name": "rpi-release.json"}]}
+                        "assets": [{"name": "tom-release.json"}]}
         for target in channels.TARGETS:
             extension = "zip" if "windows" in target else "tar.gz"
-            name = f"rpi-{self.tag}-{target}.{extension}"
+            name = f"tom-{self.tag}-{target}.{extension}"
             self.manifest["targets"][target] = {
                 "url": f"{channels.REPOSITORY}/releases/download/{self.tag}/{name}",
                 "format": extension, "size": 10, "sha256": "b" * 64}
@@ -191,7 +191,7 @@ class ChannelReadinessTests(unittest.TestCase):
             channels.verify(self.tag, self.manifest, self.release)
 
     def test_wrong_publisher_missing_target_and_prerelease_are_rejected(self):
-        for field, value in (("repository", "https://github.com/fork/pi-rust"),
+        for field, value in (("repository", "https://github.com/fork/tom"),
                              ("version", "0.3.24"), ("source_commit", "invalid")):
             manifest = copy.deepcopy(self.manifest)
             manifest[field] = value

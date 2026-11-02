@@ -29,7 +29,7 @@
 | 会话消息、崩溃恢复与真实扩展回归 | [测试流程](maintaining/testing.md) |
 | 发版与跨平台分发 | [发布流程](maintaining/releasing.md) |
 | 对外介绍与文章草稿 | [推广素材](promotion/README.md) |
-| CLI `docs` 工具的模型可读输入 | [内置文档源](rpi-tool/README.md) |
+| CLI `docs` 工具的模型可读输入 | [内置文档源](tom-tool/README.md) |
 
 ## 来源与许可
 
@@ -38,7 +38,7 @@
 ## 维护约定
 
 - 使用与实现文档放入对应功能目录，修改行为时同步更新说明。
-- `rpi-tool/` 是独立的模型可读文档源；通过 `scripts/sync-embedded-docs.sh` 同步到 CLI 的 `embedded-docs/`，不要仅修改生成快照。
+- `tom-tool/` 是独立的模型可读文档源；通过 `scripts/sync-embedded-docs.sh` 同步到 CLI 的 `embedded-docs/`，不要仅修改生成快照。
 - 发布记录维护在根目录 `CHANGELOG.md`，不再新增重复的单版本发布说明。
 - 已失效的里程碑问题记录、差距表与旧版本宣传稿已移除；Git 历史仍可查询。
 - 调试复盘与基准结果保留日期和适用范围，不作为当前功能缺失清单。

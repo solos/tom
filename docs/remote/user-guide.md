@@ -1,30 +1,30 @@
 # 远程模式（`--server` / `--connect`）
 
-rpi 支持把 agent 跑在**一个无头服务端**上，然后从**另一个进程**的 TUI 远程驱动它。
+tom 支持把 agent 跑在**一个无头服务端**上，然后从**另一个进程**的 TUI 远程驱动它。
 客户端是纯输入/显示——**没有任何本地 agent 资源**（无 provider、无工具、无扩展、无 session 文件）。
 
-> 设计取向：rpi 是 TS `pi` 的 Rust 替代品。远程层**参考**了原生 pi
+> 设计取向：tom 是 TS `pi` 的 Rust 替代品。远程层**参考**了原生 pi
 > `packages/coding-agent/src/modes/rpc/` 与 `src/client/`（`RemoteSession` + transcript）
-> 的分层思想，但协议与会话模型都是 rpi 自己的 Rust 实现，**不依赖任何 pi 运行时组件**。
+> 的分层思想，但协议与会话模型都是 tom 自己的 Rust 实现，**不依赖任何 pi 运行时组件**。
 
 ## 快速开始
 
 ```bash
 # 1) 服务端（无头）——启动时会打印 token
-rpi --server --port 9899
+tom --server --port 9899
 
 # 2) 客户端（远程 TUI）
-rpi --connect 127.0.0.1:9899 --token <token>
+tom --connect 127.0.0.1:9899 --token <token>
 ```
 
 服务端只监听 TCP、不启动 TUI；每个 `start_session` 会 fork 一个
-`rpi --mode rpc` 子进程真正执行 agent 循环。
+`tom --mode rpc` 子进程真正执行 agent 循环。
 
 ### 服务端参数
 
 | 参数 | 说明 |
 |---|---|
-| `--server` | 进入无头服务端模式（由内置/扩展 `rpi-server` 提供 TCP 监听） |
+| `--server` | 进入无头服务端模式（由内置/扩展 `tom-server` 提供 TCP 监听） |
 | `--port <n>` | 监听端口（默认 `9800`） |
 | `--bind <ip>` | 监听地址（默认 `127.0.0.1`） |
 | `--token <t>` | 使用指定 token（默认随机生成 32 位 hex） |
@@ -33,7 +33,7 @@ rpi --connect 127.0.0.1:9899 --token <token>
 启动日志示例：
 
 ```text
-rpi-server listening on 127.0.0.1:9899
+tom-server listening on 127.0.0.1:9899
 token: 3592139afa7b77e43592139afa7b77e4
 ```
 
@@ -42,11 +42,11 @@ token: 3592139afa7b77e43592139afa7b77e4
 | 参数 | 说明 |
 |---|---|
 | `--connect <host:port>` | 连接服务端并进入远程 TUI |
-| `--token <t>` | 认证 token；缺省时回退到环境变量 `RPI_SERVER_TOKEN` |
+| `--token <t>` | 认证 token；缺省时回退到环境变量 `TOM_SERVER_TOKEN` |
 
 ```bash
-export RPI_SERVER_TOKEN=3592139afa7b77e43592139afa7b77e4
-rpi --connect 127.0.0.1:9899        # 无需再传 --token
+export TOM_SERVER_TOKEN=3592139afa7b77e43592139afa7b77e4
+tom --connect 127.0.0.1:9899        # 无需再传 --token
 ```
 
 `--token` 优先级高于环境变量；空/纯空白的环境变量会被忽略。
@@ -68,14 +68,14 @@ rpi --connect 127.0.0.1:9899        # 无需再传 --token
 
 | 层 | 位置 | 职责 |
 |---|---|---|
-| 协议（单一真源） | `crates/rpi-cli/src/remote/protocol.rs` | `RemoteEvent` / `RemoteCommand` / `RemoteResponse` / `SessionState`，服务端与客户端**共用**这些类型 |
-| 无头 agent 循环 | `crates/rpi-cli/src/modes.rs`（`modes::rpc`） | 读 stdin 命令、驱动 `main` lane、把 `AgentEvent` 投影成线协议输出 |
-| 服务端适配 | `rpi-package/packages/rpi-server` | TCP JSON-RPC、会话管理、token 校验、把子进程 stdout 转发为事件 |
-| 客户端连接 | `crates/rpi-cli/src/remote/client.rs` | TCP 握手、`authenticate`、事件泵、发送命令 |
-| 客户端会话模型 | `crates/rpi-cli/src/remote/session.rs` | 把事件流折叠成 `Transcript`（用户/助手/思考/工具/通知）+ `SessionState` |
-| 客户端 TUI | `crates/rpi-cli/src/remote/tui.rs` | 基于 `pi-tui` 渲染 transcript + 输入编辑器 + 状态栏 |
+| 协议（单一真源） | `crates/tom-cli/src/remote/protocol.rs` | `RemoteEvent` / `RemoteCommand` / `RemoteResponse` / `SessionState`，服务端与客户端**共用**这些类型 |
+| 无头 agent 循环 | `crates/tom-cli/src/modes.rs`（`modes::rpc`） | 读 stdin 命令、驱动 `main` lane、把 `AgentEvent` 投影成线协议输出 |
+| 服务端适配 | `tom-package/packages/tom-server` | TCP JSON-RPC、会话管理、token 校验、把子进程 stdout 转发为事件 |
+| 客户端连接 | `crates/tom-cli/src/remote/client.rs` | TCP 握手、`authenticate`、事件泵、发送命令 |
+| 客户端会话模型 | `crates/tom-cli/src/remote/session.rs` | 把事件流折叠成 `Transcript`（用户/助手/思考/工具/通知）+ `SessionState` |
+| 客户端 TUI | `crates/tom-cli/src/remote/tui.rs` | 基于 `pi-tui` 渲染 transcript + 输入编辑器 + 状态栏 |
 
-`--connect` 在 `crates/rpi-cli/src/app.rs::run()` 中**最早**被拦截，直接跳过
+`--connect` 在 `crates/tom-cli/src/app.rs::run()` 中**最早**被拦截，直接跳过
 provider / harness / session / extension 的全部本地构建——这是“客户端零本地资源”的实现方式。
 
 ## 线协议
@@ -87,7 +87,7 @@ provider / harness / session / extension 的全部本地构建——这是“客
 | 方法 | 参数 | 结果 |
 |---|---|---|
 | `authenticate` | `{token}` | `{authenticated:true}`；失败 `-32001` |
-| `start_session` | `{}` | `{sessionId, session}`（fork 一个 `rpi --mode rpc` 子进程） |
+| `start_session` | `{}` | `{sessionId, session}`（fork 一个 `tom --mode rpc` 子进程） |
 | `subscribe` | `{sessionId}` | `{subscriptionId, sessionId, status:"subscribed"}` |
 | `send` | `{sessionId, command}` | `{sessionId, status:"sent"}`（把 `command` 写进子进程 stdin） |
 | `stop_session` | `{sessionId}` | `{sessionId, status:"stopped"}` |
@@ -118,9 +118,9 @@ provider / harness / session / extension 的全部本地构建——这是“客
 **默认线格式发生变化：新版 `--mode rpc` 默认使用 `compact-deltas`。**
 
 ```bash
-rpi --mode rpc                                     # 默认：compact-deltas
-rpi --mode rpc --rpc-message-updates=compact-deltas # 显式选择新模式
-rpi --mode rpc --rpc-message-updates=snapshot       # 迁移期临时回退
+tom --mode rpc                                     # 默认：compact-deltas
+tom --mode rpc --rpc-message-updates=compact-deltas # 显式选择新模式
+tom --mode rpc --rpc-message-updates=snapshot       # 迁移期临时回退
 ```
 
 模式在进程启动时固定，不能在运行中的会话内切换。`ready` 会声明：
@@ -148,14 +148,14 @@ Responses 的第一个工具参数 delta 会包含 `output_item.added` 中已有
 后续 delta 仅包含新后缀；这一前缀修正也适用于非 RPC 的 provider 事件消费者。
 
 内置远程 TUI 同时支持两种格式；其他消费者必须先适配再升级 native host。
-推荐部署顺序：先升级兼容两种模式的客户端和 `rpi-package` 适配器，再升级默认
-compact 的 CLI。`rpi-server` 工具可显式传入 `rpcMessageUpdates`，例如：
+推荐部署顺序：先升级兼容两种模式的客户端和 `tom-package` 适配器，再升级默认
+compact 的 CLI。`tom-server` 工具可显式传入 `rpcMessageUpdates`，例如：
 
 ```json
 {"action":"start","rpcMessageUpdates":"snapshot"}
 ```
 
-该配置需要配套升级 `rpi-server` 扩展；省略时使用子进程 CLI 自己的默认值，不向旧
+该配置需要配套升级 `tom-server` 扩展；省略时使用子进程 CLI 自己的默认值，不向旧
 CLI 注入新参数。`start_session` 不是逐会话模式切换入口。对仍未迁移的外部客户端，
 可以显式配置 snapshot 临时回退；后续版本计划移除该回退，不应作为新集成的默认。
 
@@ -191,8 +191,8 @@ CLI 注入新参数。`start_session` 不是逐会话模式切换入口。对仍
 
 ## 测试
 
-- 单元测试：`crates/rpi-cli/src/remote/protocol.rs`（线形往返）、`session.rs`（事件折叠）。
-- 集成测试：`crates/rpi-cli/tests/remote_client_smoke.rs`
+- 单元测试：`crates/tom-cli/src/remote/protocol.rs`（线形往返）、`session.rs`（事件折叠）。
+- 集成测试：`crates/tom-cli/tests/remote_client_smoke.rs`
   - 自包含（假服务端）：握手 + transcript 折叠、事件泵忽略响应帧、**token 认证三态**；
-  - 真实服务端（env 门控）：`RPI_REMOTE_E2E_ADDR` + `RPI_REMOTE_E2E_TOKEN`
+  - 真实服务端（env 门控）：`TOM_REMOTE_E2E_ADDR` + `TOM_REMOTE_E2E_TOKEN`
     驱动真实客户端跑一轮真实模型调用。

@@ -23,11 +23,11 @@ def main():
     baseline = subprocess.check_output(
         ["git", "rev-parse", args.baseline_ref], cwd=repo, text=True, encoding="utf-8").strip()
     target = (args.target_dir or repo / "target" / "pipeline-bench").resolve()
-    with tempfile.TemporaryDirectory(prefix="rpi-pipeline-bench-") as directory:
+    with tempfile.TemporaryDirectory(prefix="tom-pipeline-bench-") as directory:
         fixture = Path(directory)
         for name, source in (
-            ("baseline_state.rs", "crates/rpi-harness/src/session/state.rs"),
-            ("baseline_context.rs", "crates/rpi-harness/src/session/context.rs"),
+            ("baseline_state.rs", "crates/tom-harness/src/session/state.rs"),
+            ("baseline_context.rs", "crates/tom-harness/src/session/context.rs"),
         ):
             data = subprocess.check_output(["git", "show", f"{baseline}:{source}"], cwd=repo)
             (fixture / name).write_bytes(data)
@@ -40,14 +40,14 @@ def main():
         baseline_snapshot.parent.mkdir()
         baseline_snapshot.write_bytes(
             subprocess.check_output(
-                ["git", "show", f"{baseline}:crates/rpi-harness/src/session/state/snapshot.rs"],
+                ["git", "show", f"{baseline}:crates/tom-harness/src/session/state/snapshot.rs"],
                 cwd=repo,
             )
         )
         sources = {
-            "rpc_events.rs": "crates/rpi-cli/src/rpc/events.rs",
-            "protocol.rs": "crates/rpi-cli/src/remote/protocol.rs",
-            "prepared_request.rs": "crates/rpi-ai/src/providers/request.rs",
+            "rpc_events.rs": "crates/tom-cli/src/rpc/events.rs",
+            "protocol.rs": "crates/tom-cli/src/remote/protocol.rs",
+            "prepared_request.rs": "crates/tom-ai/src/providers/request.rs",
         }
         for name, source in sources.items():
             (fixture / name).write_bytes((repo / source).read_bytes())
@@ -59,14 +59,14 @@ def main():
         source = repo / "scripts/bench-pipeline/main.rs"
         (fixture / "main.rs").write_bytes(source.read_bytes())
         manifest = """[package]
-name = "rpi-pipeline-bench"
+name = "tom-pipeline-bench"
 version = "0.0.0"
 edition = "2021"
 [dependencies]
 """
-        for package in ("rpi-harness", "rpi-agent", "rpi-tools"):
+        for package in ("tom-harness", "tom-agent", "tom-tools"):
             manifest += f'{package} = {{ path = "{(repo / "crates" / package).as_posix()}" }}\n'
-        manifest += f'rpi-ai = {{ path = "{(repo / "crates/rpi-ai").as_posix()}", features = ["providers"] }}\n'
+        manifest += f'tom-ai = {{ path = "{(repo / "crates/tom-ai").as_posix()}", features = ["providers"] }}\n'
         manifest += """serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["preserve_order", "raw_value"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
@@ -87,14 +87,14 @@ path = "main.rs"
         subprocess.run(command, cwd=repo, stdout=subprocess.DEVNULL, check=True)
         executable = target / "release" / ("pipeline-bench.exe" if os.name == "nt" else "pipeline-bench")
         hashed = [*sources.values(), "scripts/bench-pipeline/main.rs",
-                  "crates/rpi-harness/src/session/state.rs",
-                  "crates/rpi-harness/src/session/state/snapshot.rs",
-                  "crates/rpi-harness/src/session/context.rs",
-                  "crates/rpi-harness/src/frame_progress.rs",
-                  "crates/rpi-harness/src/session/session.rs",
-                  "crates/rpi-harness/src/agent_harness.rs",
-                  "crates/rpi-harness/src/session/jsonl/storage.rs",
-                  "crates/rpi-tools/src/os_env.rs", "crates/rpi-tools/src/os_env/append.rs"]
+                  "crates/tom-harness/src/session/state.rs",
+                  "crates/tom-harness/src/session/state/snapshot.rs",
+                  "crates/tom-harness/src/session/context.rs",
+                  "crates/tom-harness/src/frame_progress.rs",
+                  "crates/tom-harness/src/session/session.rs",
+                  "crates/tom-harness/src/agent_harness.rs",
+                  "crates/tom-harness/src/session/jsonl/storage.rs",
+                  "crates/tom-tools/src/os_env.rs", "crates/tom-tools/src/os_env/append.rs"]
         print(json.dumps({"environment": platform.platform(), "cpu": platform.processor(),
                           "rustc": subprocess.check_output(["rustc", "-Vv"], text=True, encoding="utf-8"),
                           "baseline_ref": baseline,

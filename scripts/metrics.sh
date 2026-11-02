@@ -11,15 +11,15 @@
 # site traffic number worth splitting by referrer.
 set -uo pipefail
 
-REPO="bigfish1913/pi-rust"
+REPO="bigfish1913/tom"
 CRATES=(
-  rpi-telemetry rpi-ai rpi-agent rpi-plugin-sdk rpi-extensions
-  rpi-tools rpi-harness rpi-tui rpi-cli
+  tom-telemetry tom-ai tom-agent tom-plugin-sdk tom-extensions
+  tom-tools tom-harness tom-tui tom-cli
 )
 # crates.io returns 403 without a User-Agent, so every request carries one.
 # `set --` splits the "<all> <recent>" pair; the defaults keep a row honest
 # (0, not empty) when the API is unreachable.
-UA="rpi-metrics (+https://github.com/${REPO})"
+UA="tom-metrics (+https://github.com/${REPO})"
 
 hr() { printf '%s\n' "────────────────────────────────────────────────────────────"; }
 

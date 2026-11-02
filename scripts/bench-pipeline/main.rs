@@ -1,7 +1,7 @@
 //! Offline fixture staged by bench-pipeline.py with baseline/current modules.
 #![allow(dead_code)]
-pub use rpi_ai::AiError;
-pub use rpi_harness::{error, messages, session};
+pub use tom_ai::AiError;
+pub use tom_harness::{error, messages, session};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -15,9 +15,9 @@ mod remote {
     pub use crate::protocol;
 }
 mod rpc_events;
-use rpi_agent::{AgentEmitter, AgentEvent};
-use rpi_ai::{Api, AssistantMessage, AssistantMessageEvent, Content};
-use rpi_harness::session::types::*;
+use tom_agent::{AgentEmitter, AgentEvent};
+use tom_ai::{Api, AssistantMessage, AssistantMessageEvent, Content};
+use tom_harness::session::types::*;
 struct Counter;
 static ALLOCS: AtomicUsize = AtomicUsize::new(0);
 static BYTES: AtomicUsize = AtomicUsize::new(0);
@@ -61,7 +61,7 @@ fn entry(index: usize) -> Entry {
             parent_id: (index > 0).then(|| format!("e{}", index - 1)),
             timestamp: 42,
         },
-        message: rpi_ai::UserMessage::new("x".repeat(8192), 42).into(),
+        message: tom_ai::UserMessage::new("x".repeat(8192), 42).into(),
         terminate: None,
     })
 }
@@ -208,8 +208,8 @@ async fn progress_run(volatile: bool, events: &[AgentEvent]) {
     } else {
         s
     };
-    let rec = rpi_harness::frame_progress::FrameRecordingEmitter::new(
-        Arc::new(rpi_agent::CollectorEmitter::default()),
+    let rec = tom_harness::frame_progress::FrameRecordingEmitter::new(
+        Arc::new(tom_agent::CollectorEmitter::default()),
         s,
         "main",
         "run",
@@ -257,9 +257,9 @@ fn progress(variant: &str) {
     });
 }
 fn file(variant: &str) {
-    use rpi_tools::FileSystem;
+    use tom_tools::FileSystem;
     let temp = tempfile::tempdir().unwrap();
-    let env = rpi_tools::OsExecutionEnv::with_cwd(temp.path().to_path_buf());
+    let env = tom_tools::OsExecutionEnv::with_cwd(temp.path().to_path_buf());
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_all()
@@ -272,7 +272,7 @@ fn file(variant: &str) {
                 for _ in 0..128 {
                     env.append_file(
                         "bench.jsonl",
-                        rpi_tools::env::FileContent::Bytes(bytes.to_vec()),
+                        tom_tools::env::FileContent::Bytes(bytes.to_vec()),
                         None,
                     )
                     .await

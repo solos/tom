@@ -1,4 +1,4 @@
-# Contributing to rpi
+# Contributing to tom
 
 Thanks for taking the time to contribute. This document covers the practical
 details: how to build, what CI requires, and how to get a change merged.
@@ -13,7 +13,7 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 - **Feature requests** — use the [feature request form](../../issues/new?template=feature_request.yml).
   Describe the problem first, then the proposed solution.
 - **Extensions** — publish `cdylib` extensions in
-  [`pi-rust/rpi-package`](https://github.com/pi-rust/rpi-package). Bugs in the
+  [`tom/tom-package`](https://github.com/tom/tom-package). Bugs in the
   ABI or the loader itself belong in this repository.
 - **Documentation** — `README.md`, `docs/`, and the static site in `website/`
   are all fair game. Typos and broken links are welcome as direct PRs.
@@ -28,7 +28,7 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 - Optional: [`task`](https://taskfile.dev/) for the release/deploy targets in
   `Taskfile.yml`. Ordinary builds do not need it.
 
-No API key is required for the test suite: `rpi-ai` ships a deterministic
+No API key is required for the test suite: `tom-ai` ships a deterministic
 `faux` provider and the tests run offline.
 
 ## Build and test
@@ -43,7 +43,7 @@ For changes that may affect the minimum supported Rust version:
 ```bash
 rustup toolchain install 1.88.0 --profile minimal
 cargo +1.88.0 check --workspace --all-targets --locked
-cargo +1.88.0 check -p rpi-extensions --all-features --tests --locked
+cargo +1.88.0 check -p tom-extensions --all-features --tests --locked
 ```
 
 The minimum version matches the current locked dependencies, including
@@ -80,32 +80,32 @@ provider to the default `cargo test` path.
 
 ## Repository layout
 
-The workspace directories and the published crate names both use the `rpi-`
-prefix (`crates/rpi-ai` ↔ `rpi-ai`). `package.name` in each `Cargo.toml` is the
+The workspace directories and the published crate names both use the `tom-`
+prefix (`crates/tom-ai` ↔ `tom-ai`). `package.name` in each `Cargo.toml` is the
 crate name; the directory name is not part of the public API.
 
 | Directory                          | Crate            |
 | ---------------------------------- | ---------------- |
-| `crates/rpi-telemetry`              | `rpi-telemetry`  |
-| `crates/rpi-ai`                     | `rpi-ai`         |
-| `crates/rpi-runtime`                | `rpi-runtime`    |
-| `crates/rpi-agent`                  | `rpi-agent`      |
-| `crates/rpi-tools`                  | `rpi-tools`      |
-| `crates/rpi-harness`                | `rpi-harness`    |
-| `crates/rpi-cli`                    | `rpi-cli`        |
-| `crates/rpi-tui`                    | `rpi-tui`        |
-| `crates/rpi-plugin-sdk`            | `rpi-plugin-sdk` |
-| `crates/rpi-extensions`            | `rpi-extensions` |
+| `crates/tom-telemetry`              | `tom-telemetry`  |
+| `crates/tom-ai`                     | `tom-ai`         |
+| `crates/tom-runtime`                | `tom-runtime`    |
+| `crates/tom-agent`                  | `tom-agent`      |
+| `crates/tom-tools`                  | `tom-tools`      |
+| `crates/tom-harness`                | `tom-harness`    |
+| `crates/tom-cli`                    | `tom-cli`        |
+| `crates/tom-tui`                    | `tom-tui`        |
+| `crates/tom-plugin-sdk`            | `tom-plugin-sdk` |
+| `crates/tom-extensions`            | `tom-extensions` |
 
 Dependency direction is one-way and must stay that way:
 
 ```
-rpi-telemetry → rpi-ai → rpi-agent → rpi-tools → rpi-harness → rpi-cli
+tom-telemetry → tom-ai → tom-agent → tom-tools → tom-harness → tom-cli
 ```
 
-`rpi-plugin-sdk` is a zero-dependency leaf so that plugins do not pull the
-whole runtime; `rpi-extensions` sits on top of it. Adding a dependency that
-points backwards (for example `rpi-agent` depending on `rpi-cli`) will be
+`tom-plugin-sdk` is a zero-dependency leaf so that plugins do not pull the
+whole runtime; `tom-extensions` sits on top of it. Adding a dependency that
+points backwards (for example `tom-agent` depending on `tom-cli`) will be
 rejected.
 
 `docs/architecture/overview.md` explains the design intent behind the split;
@@ -153,11 +153,11 @@ keep the type prefix and scope in the conventional form.
 4. Expect review comments on API additions; the public surface of these crates
    is intended to be small and stable.
 
-If your change touches the plugin ABI (`rpi-plugin-sdk`), call it out
+If your change touches the plugin ABI (`tom-plugin-sdk`), call it out
 explicitly in the PR description. ABI changes affect every already-built
 extension and require a documented negotiation story.
 
-If your change touches session persistence (`rpi-harness`), describe the
+If your change touches session persistence (`tom-harness`), describe the
 recovery behaviour for a crash in the middle of the affected operation.
 
 ## Releases

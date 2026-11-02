@@ -1,6 +1,6 @@
 # Native RPC: message identity, inline images and client text I/O
 
-These additive contracts belong to native `rpi --mode rpc`. Controllers must
+These additive contracts belong to native `tom --mode rpc`. Controllers must
 inspect `ready` for the exact requested feature; a version string, plugin ABI
 or adapter capability alone is insufficient. Legacy text prompts and local
 built-in tools retain their existing path. This document describes source
@@ -28,7 +28,7 @@ Native history exposes the committed `entryId`. Tool-result messages can own
 native message identity, but tool-execution events are still correlated by
 `toolCallId`, not a fabricated message ID. Unrelated lifecycle events and
 compaction summaries do not acquire message identity. The public Rust API
-change is documented in [rpi-agent](../crates/rpi-agent/README.md#optional-native-message-identity),
+change is documented in [tom-agent](../crates/tom-agent/README.md#optional-native-message-identity),
 including optional fields and the default-compatible `emit_injected` hook.
 
 ACP maps this contract to optional stable-v1 ContentChunk `messageId` for live
@@ -190,7 +190,7 @@ identity/prompt/file-I/O and ACP replay/mapping fixtures, alongside its existing
 direct MCP core/stdio/HTTP bridge checks. No new CI architecture is required.
 
 The package-side authored Windows proof is
-`packages/rpi-acp/tests/message_image_fs_native.py`, not a native-repository
+`packages/tom-acp/tests/message_image_fs_native.py`, not a native-repository
 script. From the package root, use `python -B <that-path> --help`. It requires
 explicit verified native/bridge binaries, SHA-256 arguments, a parent-created
 complete prebuild source inventory binding both subsequent successful builds,

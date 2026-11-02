@@ -59,7 +59,7 @@ query error and are not forced to scan their history to implement this feature.
 
 ## Local synthetic measurement (not production latency)
 
-Run `cargo test --release -p rpi-harness --lib
+Run `cargo test --release -p tom-harness --lib
 benchmark_borrowed_user_index_against_full_projection -- --ignored --nocapture`.
 The fixture has 100 user messages and 10,000 assistant payload entries. On one
 Windows release-mode run the complete entry clone/projection baseline was

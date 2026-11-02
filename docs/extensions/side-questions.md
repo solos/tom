@@ -52,16 +52,16 @@ Headless hosts keep queryable state but do not render a workspace. Missing capab
 ## Verification
 
 ```sh
-cargo test -p rpi-cli --lib side_questions
-cargo test -p rpi-tui --lib scroll_view
-cargo test -p rpi-extensions --lib side_questions
-cargo test -p rpi-harness --lib side_
+cargo test -p tom-cli --lib side_questions
+cargo test -p tom-tui --lib scroll_view
+cargo test -p tom-extensions --lib side_questions
+cargo test -p tom-harness --lib side_
 ```
 
-Build `rpi-package/packages/rpi-btw`, set `RPI_TEST_BTW_LIBRARY` to the actual DLL/so/dylib, then run:
+Build `tom-package/packages/tom-btw`, set `TOM_TEST_BTW_LIBRARY` to the actual DLL/so/dylib, then run:
 
 ```sh
-cargo test -p rpi-cli --test btw_package
+cargo test -p tom-cli --test btw_package
 ```
 
 Without that variable the opt-in integration test skips. Tests use local fake providers and require no real API key. Native terminal playtesting remains a separate acceptance step.

@@ -1412,9 +1412,9 @@ name = "minimal"
 version = "0.1.11"
 dependencies = [
  "futures",
- "rpi-agent",
- "rpi-ai",
  "tokio",
+ "tom-agent",
+ "tom-ai",
 ]
 
 [[package]]
@@ -1757,8 +1757,8 @@ dependencies = [
 name = "plugin-stub"
 version = "0.1.11"
 dependencies = [
- "rpi-plugin-sdk",
  "serde_json",
+ "tom-plugin-sdk",
 ]
 
 [[package]]
@@ -2070,225 +2070,6 @@ dependencies = [
  "libc",
  "rtoolbox",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "rpi-agent"
-version = "0.16.0"
-dependencies = [
- "async-trait",
- "futures",
- "rpi-ai",
- "rpi-telemetry",
- "schemars",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "rpi-ai"
-version = "0.16.0"
-dependencies = [
- "async-trait",
- "base64",
- "bytes",
- "eventsource-stream",
- "futures",
- "jsonschema",
- "regex",
- "reqwest",
- "rpi-telemetry",
- "schemars",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tokio-util",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "rpi-cli"
-version = "0.16.0"
-dependencies = [
- "arboard",
- "async-trait",
- "base64",
- "criterion",
- "crossterm",
- "dirs",
- "flate2",
- "fs2",
- "futures",
- "globset",
- "indexmap 2.11.4",
- "nix",
- "percent-encoding",
- "png 0.18.1",
- "reqwest",
- "rpassword",
- "rpi-agent",
- "rpi-ai",
- "rpi-extensions",
- "rpi-harness",
- "rpi-plugin-sdk",
- "rpi-runtime",
- "rpi-telemetry",
- "rpi-tools",
- "rpi-tui",
- "schemars",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "tar",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-util",
- "tracing",
- "uuid",
- "windows-sys 0.59.0",
- "zip",
-]
-
-[[package]]
-name = "rpi-extensions"
-version = "0.16.0"
-dependencies = [
- "async-trait",
- "dirs",
- "futures",
- "libloading",
- "rpi-agent",
- "rpi-ai",
- "rpi-plugin-sdk",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-util",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "rpi-harness"
-version = "0.16.0"
-dependencies = [
- "async-trait",
- "futures",
- "rpi-agent",
- "rpi-ai",
- "rpi-telemetry",
- "rpi-tools",
- "rusqlite",
- "schemars",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-util",
- "tracing",
- "uuid",
- "yaml_serde",
-]
-
-[[package]]
-name = "rpi-plugin-sdk"
-version = "0.16.0"
-dependencies = [
- "ciborium",
- "libc",
- "reqwest",
- "rpi-ai",
- "serde",
- "serde_json",
- "tokio",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "rpi-runtime"
-version = "0.16.0"
-dependencies = [
- "async-trait",
- "indexmap 2.11.4",
- "reqwest",
- "rpi-ai",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
-]
-
-[[package]]
-name = "rpi-telemetry"
-version = "0.16.0"
-dependencies = [
- "async-trait",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "rpi-tools"
-version = "0.16.0"
-dependencies = [
- "async-trait",
- "base64",
- "codepage",
- "dirs",
- "encoding_rs",
- "futures",
- "globset",
- "image",
- "jsonschema",
- "nix",
- "regex",
- "rpi-agent",
- "rpi-ai",
- "rpi-plugin-sdk",
- "schemars",
- "serde",
- "serde_json",
- "similar",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-util",
- "tracing",
- "unicode-normalization",
- "uuid",
- "win32job",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "rpi-tui"
-version = "0.16.0"
-dependencies = [
- "base64",
- "crossterm",
- "pulldown-cmark",
- "regex",
- "serde_json",
- "similar",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "unicode-segmentation",
- "unicode-width",
- "winapi",
 ]
 
 [[package]]
@@ -2840,15 +2621,234 @@ dependencies = [
 ]
 
 [[package]]
+name = "tom-agent"
+version = "0.16.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-util",
+ "tom-ai",
+ "tom-telemetry",
+ "tracing",
+]
+
+[[package]]
+name = "tom-ai"
+version = "0.16.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "bytes",
+ "eventsource-stream",
+ "futures",
+ "jsonschema",
+ "regex",
+ "reqwest",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-util",
+ "tom-telemetry",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "tom-cli"
+version = "0.16.0"
+dependencies = [
+ "arboard",
+ "async-trait",
+ "base64",
+ "criterion",
+ "crossterm",
+ "dirs",
+ "flate2",
+ "fs2",
+ "futures",
+ "globset",
+ "indexmap 2.11.4",
+ "nix",
+ "percent-encoding",
+ "png 0.18.1",
+ "reqwest",
+ "rpassword",
+ "schemars",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tar",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-util",
+ "tom-agent",
+ "tom-ai",
+ "tom-extensions",
+ "tom-harness",
+ "tom-plugin-sdk",
+ "tom-runtime",
+ "tom-telemetry",
+ "tom-tools",
+ "tom-tui",
+ "tracing",
+ "uuid",
+ "windows-sys 0.59.0",
+ "zip",
+]
+
+[[package]]
+name = "tom-extensions"
+version = "0.16.0"
+dependencies = [
+ "async-trait",
+ "dirs",
+ "futures",
+ "libloading",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-util",
+ "tom-agent",
+ "tom-ai",
+ "tom-plugin-sdk",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "tom-harness"
+version = "0.16.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "rusqlite",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-util",
+ "tom-agent",
+ "tom-ai",
+ "tom-telemetry",
+ "tom-tools",
+ "tracing",
+ "uuid",
+ "yaml_serde",
+]
+
+[[package]]
+name = "tom-plugin-sdk"
+version = "0.16.0"
+dependencies = [
+ "ciborium",
+ "libc",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tom-ai",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "tom-runtime"
+version = "0.16.0"
+dependencies = [
+ "async-trait",
+ "indexmap 2.11.4",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tom-ai",
+]
+
+[[package]]
+name = "tom-telemetry"
+version = "0.16.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "tom-tools"
+version = "0.16.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "codepage",
+ "dirs",
+ "encoding_rs",
+ "futures",
+ "globset",
+ "image",
+ "jsonschema",
+ "nix",
+ "regex",
+ "schemars",
+ "serde",
+ "serde_json",
+ "similar",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-util",
+ "tom-agent",
+ "tom-ai",
+ "tom-plugin-sdk",
+ "tracing",
+ "unicode-normalization",
+ "uuid",
+ "win32job",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "tom-tui"
+version = "0.16.0"
+dependencies = [
+ "base64",
+ "crossterm",
+ "pulldown-cmark",
+ "regex",
+ "serde_json",
+ "similar",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "unicode-segmentation",
+ "unicode-width",
+ "winapi",
+]
+
+[[package]]
 name = "tools-example"
 version = "0.1.11"
 dependencies = [
  "futures",
- "rpi-agent",
- "rpi-ai",
- "rpi-tools",
  "serde_json",
  "tokio",
+ "tom-agent",
+ "tom-ai",
+ "tom-tools",
 ]
 
 [[package]]
@@ -2938,8 +2938,8 @@ name = "tui-example"
 version = "0.1.11"
 dependencies = [
  "crossterm",
- "rpi-tui",
  "tokio",
+ "tom-tui",
 ]
 
 [[package]]

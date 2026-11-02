@@ -20,7 +20,7 @@ IMAGE_CACHE = 'public, max-age=3600, s-maxage=86400'
 
 
 def fetch(base_url, path):
-    request = Request(base_url.rstrip('/') + path, headers={'User-Agent': 'rpi-website-verify/1'})
+    request = Request(base_url.rstrip('/') + path, headers={'User-Agent': 'tom-website-verify/1'})
     try:
         response = OPENER.open(request, timeout=15)
     except HTTPError as error:
@@ -51,10 +51,10 @@ def verify(base_url):
     parsed = urlsplit(base_url)
     if parsed.scheme not in ('http', 'https') or not parsed.netloc or parsed.query or parsed.fragment:
         raise ValueError(f'Expected an HTTP(S) base URL without query/fragment: {base_url}')
-    check(base_url, '/', 200, CONTENT_CACHE, marker=b'bigfish1913/pi-rust', content_type='text/html')
-    check(base_url, '/index.html?lang=en', 200, CONTENT_CACHE, marker=b'bigfish1913/pi-rust')
+    check(base_url, '/', 200, CONTENT_CACHE, marker=b'bigfish1913/tom', content_type='text/html')
+    check(base_url, '/index.html?lang=en', 200, CONTENT_CACHE, marker=b'bigfish1913/tom')
     check(base_url, '/guide.html?doc=extension-authoring&lang=zh', 200, CONTENT_CACHE)
-    check(base_url, '/data/packages.json', 200, CONTENT_CACHE, marker=b'rpi-cli', content_type='application/json')
+    check(base_url, '/data/packages.json', 200, CONTENT_CACHE, marker=b'tom-cli', content_type='application/json')
     check(base_url, '/data/packages-meta.json', 200, CONTENT_CACHE, content_type='application/json')
     check(base_url, '/content/user-guide.html', 200, CONTENT_CACHE, content_type='text/html')
     check(base_url, '/styles.css?v=cdn-verify', 200, ASSET_CACHE, content_type='text/css')
@@ -62,16 +62,16 @@ def verify(base_url):
     check(base_url, '/favicon.svg', 200, IMAGE_CACHE, content_type='image/svg+xml')
     check(base_url, '/user-guide.md', 302, 'no-store', location='/guide.html?doc=user-guide')
     for path in (
-        '/.rpi', '/.rpi/todo.json', '/.deploy/website.tar.gz', '/.git/config',
-        '/nested/.rpi/session.json', '/.RPI/todo.json', '/%2erpi/todo.json',
-        '/__rpi_missing__.css', '/data/__rpi_missing__.json', '/__rpi_missing__.html',
+        '/.tom', '/.tom/todo.json', '/.deploy/website.tar.gz', '/.git/config',
+        '/nested/.tom/session.json', '/.TOM/todo.json', '/%2etom/todo.json',
+        '/__tom_missing__.css', '/data/__tom_missing__.json', '/__tom_missing__.html',
     ):
         check(base_url, path, 404, 'no-store')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('base_urls', nargs='+', help='e.g. https://rpi.laofu.online https://rpi.bigfisharc.cn')
+    parser.add_argument('base_urls', nargs='+', help='e.g. https://tom.laofu.online https://tom.bigfisharc.cn')
     args = parser.parse_args()
     try:
         for base_url in args.base_urls:

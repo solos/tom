@@ -24,7 +24,7 @@ jobs:
     name: Rust 1.88 (${{ matrix.os }})
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/pi-rust' &&
+      github.repository == 'bigfish1913/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -47,19 +47,19 @@ jobs:
       - name: Check workspace targets on MSRV
         run: cargo check --workspace --all-targets --locked
       - name: Check all extension features on MSRV
-        run: cargo check -p rpi-extensions --all-features --tests --locked
+        run: cargo check -p tom-extensions --all-features --tests --locked
       - name: Check standalone ABI core on MSRV
-        run: cargo check -p rpi-plugin-sdk --no-default-features --locked
+        run: cargo check -p tom-plugin-sdk --no-default-features --locked
       - name: Check provider SDK bridge on MSRV
-        run: cargo check -p rpi-plugin-sdk --features provider --locked
+        run: cargo check -p tom-plugin-sdk --features provider --locked
       - name: Check AI core without default features on MSRV
-        run: cargo check -p rpi-ai --no-default-features --locked
+        run: cargo check -p tom-ai --no-default-features --locked
 
   windows-installer:
     name: Windows installer (${{ matrix.shell }})
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/pi-rust' &&
+      github.repository == 'bigfish1913/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -88,14 +88,14 @@ jobs:
     # Skipped draft runs must not satisfy the normal required check contexts.
     name: >-
       Cargo check (${{ matrix.os }})${{ github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/pi-rust' &&
+      github.repository == 'bigfish1913/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
       github.event.pull_request.draft == true && ' (preparing release)' || '' }}
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/pi-rust' &&
+      github.repository == 'bigfish1913/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -122,19 +122,19 @@ jobs:
         run: cargo check --workspace --all-targets --locked
 
       - name: Check all extension features and test targets
-        run: cargo check -p rpi-extensions --all-features --tests --locked
+        run: cargo check -p tom-extensions --all-features --tests --locked
 
   test:
     name: >-
       Cargo test${{ github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/pi-rust' &&
+      github.repository == 'bigfish1913/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
       github.event.pull_request.draft == true && ' (preparing release)' || '' }}
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/pi-rust' &&
+      github.repository == 'bigfish1913/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -165,8 +165,8 @@ jobs:
       - name: Verify embedded docs are in sync
         run: |
           sh scripts/sync-embedded-docs.sh
-          if ! git diff --exit-code -- crates/rpi-cli/embedded-docs; then
-            echo "::error::crates/rpi-cli/embedded-docs is out of sync with the repository documents. Run 'sh scripts/sync-embedded-docs.sh' and commit the result."
+          if ! git diff --exit-code -- crates/tom-cli/embedded-docs; then
+            echo "::error::crates/tom-cli/embedded-docs is out of sync with the repository documents. Run 'sh scripts/sync-embedded-docs.sh' and commit the result."
             exit 1
           fi
 
@@ -174,12 +174,12 @@ jobs:
         run: cargo test --workspace --locked
 
       - name: Build CLI for offline session smoke test
-        run: cargo build -p rpi-cli --bin rpi --locked --target-dir target
+        run: cargo build -p tom-cli --bin tom --locked --target-dir target
 
       - name: Test offline CLI session recovery
         run: |
           python3 -B scripts/test_session_smoke.py
-          python3 -B scripts/session-smoke.py --rpi target/debug/rpi --diagnostics-dir "$RUNNER_TEMP/$SESSION_SMOKE_DIAGNOSTICS_NAME"
+          python3 -B scripts/session-smoke.py --tom target/debug/tom --diagnostics-dir "$RUNNER_TEMP/$SESSION_SMOKE_DIAGNOSTICS_NAME"
 
       - name: Upload failed session smoke diagnostics
         if: failure()
@@ -191,19 +191,19 @@ jobs:
           include-hidden-files: true
 
       - name: Test the optional provider SDK bridge
-        run: cargo test -p rpi-plugin-sdk --features provider --locked
+        run: cargo test -p tom-plugin-sdk --features provider --locked
 
       - name: Exercise the real plugin shared library
         run: |
           cargo build -p plugin-stub --locked
-          cargo test -p rpi-extensions --features provider-performance --test plugin_stub_smoke --locked
-          cargo test -p rpi-cli --test tool_prompt_metadata --locked
+          cargo test -p tom-extensions --features provider-performance --test plugin_stub_smoke --locked
+          cargo test -p tom-cli --test tool_prompt_metadata --locked
 
       - name: Check the standalone ABI core
-        run: cargo check -p rpi-plugin-sdk --no-default-features --locked
+        run: cargo check -p tom-plugin-sdk --no-default-features --locked
 
       - name: Test provider bridge reconstruction and capacity
-        run: cargo test -p rpi-extensions --features provider-performance --locked 'provider::'
+        run: cargo test -p tom-extensions --features provider-performance --locked 'provider::'
 
       - name: Test prebuilt release manifests
         run: python3 scripts/test_prebuilt_release.py
@@ -218,7 +218,7 @@ jobs:
     name: Windows plugin ABI and DLL lifecycle
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/pi-rust' &&
+      github.repository == 'bigfish1913/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -232,13 +232,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Negotiate old and new ABI tables
-        run: cargo test -p rpi-plugin-sdk --features provider --locked
+        run: cargo test -p tom-plugin-sdk --features provider --locked
       - name: Check DLL shutdown and tool ownership
-        run: cargo test -p rpi-extensions --lib --features rpi-ai/providers --locked
+        run: cargo test -p tom-extensions --lib --features tom-ai/providers --locked
 
   release:
     name: Release automation
-    if: github.repository == 'bigfish1913/pi-rust' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.repository == 'bigfish1913/tom' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: [msrv, check, test, windows-installer]
     permissions:
       contents: write
@@ -250,7 +250,7 @@ jobs:
 
   preview-version:
     name: Prepare preview release
-    if: github.repository == 'bigfish1913/pi-rust' && github.ref == 'refs/heads/preview' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.repository == 'bigfish1913/tom' && github.ref == 'refs/heads/preview' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: [msrv, check, test, windows-installer]
     runs-on: ubuntu-latest
     permissions:

@@ -6,24 +6,24 @@
 
 ## 目标与边界
 
-嵌入式应用可以不依赖 `rpi-cli`，也不复制目录、凭据优先级与模型解析规则，
+嵌入式应用可以不依赖 `tom-cli`，也不复制目录、凭据优先级与模型解析规则，
 使用自己存储中的配置与凭据，构建可供 Agent/Harness 使用的 provider。
 
 | 层 | 职责 |
 | --- | --- |
-| `rpi-ai` | 通用 Model、Provider、ThinkingLevel、协议实现与流式响应 |
-| `rpi-runtime` | 模型目录、凭据解析、本地认证状态、模型/thinking 解析、私有请求绑定和可选刷新通知 |
-| `rpi-extensions` | 动态库加载、原有 ABI、provider 声明与实现、取消和插件生命周期 |
-| `rpi-tui` | 通用终端组件；不依赖 runtime、模型目录或凭据业务 |
-| `rpi-cli` | 参数、默认文件路径、读写存储、项目信任、OAuth 交互、会话与终端挂载、RPC 传输 |
+| `tom-ai` | 通用 Model、Provider、ThinkingLevel、协议实现与流式响应 |
+| `tom-runtime` | 模型目录、凭据解析、本地认证状态、模型/thinking 解析、私有请求绑定和可选刷新通知 |
+| `tom-extensions` | 动态库加载、原有 ABI、provider 声明与实现、取消和插件生命周期 |
+| `tom-tui` | 通用终端组件；不依赖 runtime、模型目录或凭据业务 |
+| `tom-cli` | 参数、默认文件路径、读写存储、项目信任、OAuth 交互、会话与终端挂载、RPC 传输 |
 
-`rpi-runtime` 只依赖 `rpi-ai` 和通用库；不依赖 CLI、TUI、Harness 或扩展加载器。
+`tom-runtime` 只依赖 `tom-ai` 和通用库；不依赖 CLI、TUI、Harness 或扩展加载器。
 供应商专属实现仍归原 provider package，runtime 不建立第二套插件加载机制。
 
 ## 公共 API
 
 - `RuntimeConfig`：宿主提供 `ModelsConfig`、`AuthStore` 和模型默认值。
-  宿主可以从文件、数据库或内存读取，库没有固定的 `~/.rpi` 路径。
+  宿主可以从文件、数据库或内存读取，库没有固定的 `~/.tom` 路径。
 - `ValueSource`：宿主提供环境值、时间和可选的凭据命令执行。
   `BTreeMap<String, String>` 是内存实现，不读取进程环境且默认禁用命令。
   CLI 的适配器保留原环境变量、模板、命令缓存与未缓存请求头行为。
@@ -68,7 +68,7 @@ OAuth 登录、刷新、撤销的交互和落盘仍由原宿主负责，runtime 
 ## 独立嵌入示例
 
 ```text
-cargo run -p rpi-runtime --example embedded --locked
+cargo run -p tom-runtime --example embedded --locked
 ```
 
 示例仅依赖 runtime 与 AI 类型，使用内存配置、宿主提供的 faux provider 和空环境，
@@ -90,18 +90,18 @@ review 回归覆盖混合 endpoint 的双向代理路由与代理认证头、无
 cargo fmt --all -- --check
 cargo check --workspace --all-targets --locked
 cargo test --workspace --locked
-cargo clippy -p rpi-runtime --all-targets --no-deps --locked -- -D warnings
-cargo run -p rpi-runtime --example embedded --locked
+cargo clippy -p tom-runtime --all-targets --no-deps --locked -- -D warnings
+cargo run -p tom-runtime --example embedded --locked
 ```
 
-真实 provider 集成需显式设置 `RPI_TEST_PROVIDER_LIBRARY`（已构建的
-`rpi-providers` 动态库）和 `RPI_TEST_PROVIDER_PACKAGE`（源码包目录），再运行
-`cargo test -p rpi-cli --test provider_packages --locked -- --nocapture`。
-本次在 Windows 加载相邻 rpi-package 的真实 DLL，7 项集成测试全部执行并通过，
+真实 provider 集成需显式设置 `TOM_TEST_PROVIDER_LIBRARY`（已构建的
+`tom-providers` 动态库）和 `TOM_TEST_PROVIDER_PACKAGE`（源码包目录），再运行
+`cargo test -p tom-cli --test provider_packages --locked -- --nocapture`。
+本次在 Windows 加载相邻 tom-package 的真实 DLL，7 项集成测试全部执行并通过，
 包含流式请求、provider 隔离、匿名策略、重载和项目包发现。
 
 第二阶段开放 provider/model/thinking 终端选择器。建议通过可选 `tui` feature
-提供 `rpi-runtime::ui`，默认运行时仍不依赖终端。公共组件只返回类型化选择结果；
+提供 `tom-runtime::ui`，默认运行时仍不依赖终端。公共组件只返回类型化选择结果；
 保存默认值、执行 OAuth、切换会话和挂载位置仍由宿主决定。
 
 本次不重写 Agent Loop、Harness、远程传输或插件 ABI，不接管宿主的分支、

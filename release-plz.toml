@@ -12,57 +12,57 @@ pr_name = "chore(release): prepare {{ version }}"
 pr_draft = true
 
 [[package]]
-name = "rpi-telemetry"
+name = "tom-telemetry"
 release = true
-version_group = "rpi"
+version_group = "tom"
 
 [[package]]
-name = "rpi-ai"
+name = "tom-ai"
 release = true
-version_group = "rpi"
+version_group = "tom"
 
 [[package]]
-name = "rpi-runtime"
+name = "tom-runtime"
 release = true
-version_group = "rpi"
+version_group = "tom"
 
 [[package]]
-name = "rpi-agent"
+name = "tom-agent"
 release = true
-version_group = "rpi"
+version_group = "tom"
 
 [[package]]
-name = "rpi-plugin-sdk"
+name = "tom-plugin-sdk"
 release = true
-version_group = "rpi"
+version_group = "tom"
 
 [[package]]
-name = "rpi-extensions"
+name = "tom-extensions"
 release = true
-version_group = "rpi"
+version_group = "tom"
 
 [[package]]
-name = "rpi-tools"
+name = "tom-tools"
 release = true
-version_group = "rpi"
+version_group = "tom"
 
 [[package]]
-name = "rpi-harness"
+name = "tom-harness"
 release = true
-version_group = "rpi"
+version_group = "tom"
 
 [[package]]
-name = "rpi-tui"
+name = "tom-tui"
 release = true
-version_group = "rpi"
+version_group = "tom"
 
 [[package]]
-name = "rpi-cli"
+name = "tom-cli"
 release = true
-version_group = "rpi"
+version_group = "tom"
 changelog_update = true
 changelog_path = "CHANGELOG.md"
-changelog_include = ["rpi-telemetry", "rpi-ai", "rpi-runtime", "rpi-agent", "rpi-plugin-sdk", "rpi-extensions", "rpi-tools", "rpi-harness", "rpi-tui"]
+changelog_include = ["tom-telemetry", "tom-ai", "tom-runtime", "tom-agent", "tom-plugin-sdk", "tom-extensions", "tom-tools", "tom-harness", "tom-tui"]
 git_tag_enable = true
 git_tag_name = "v{{ version }}"
 git_release_enable = true

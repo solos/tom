@@ -1,6 +1,6 @@
 name: Release binaries
 
-# Builds prebuilt `rpi` binaries and attaches them to the GitHub Release for a
+# Builds prebuilt `tom` binaries and attaches them to the GitHub Release for a
 # tag. This is what makes `curl -fsSL .../install.sh | sh` work and what removes
 # the "you need a Rust toolchain and a C linker" barrier to trying the CLI.
 #
@@ -49,7 +49,7 @@ env:
 
 jobs:
   build:
-    if: github.repository == 'bigfish1913/pi-rust'
+    if: github.repository == 'bigfish1913/tom'
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -103,14 +103,14 @@ jobs:
           version="${{ inputs.version }}"
           if [[ -z "${version}" ]]; then
             version="$(cargo metadata --no-deps --format-version 1 --locked \
-              | jq -r '.packages[] | select(.name == "rpi-cli") | .version' | head -n 1)"
+              | jq -r '.packages[] | select(.name == "tom-cli") | .version' | head -n 1)"
           fi
           if [[ -z "${version}" || "${version}" == "null" ]]; then
-            echo "Could not determine the rpi-cli workspace version." >&2
+            echo "Could not determine the tom-cli workspace version." >&2
             exit 1
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "Building rpi ${version} for ${{ matrix.target }}"
+          echo "Building tom ${version} for ${{ matrix.target }}"
 
       - name: Build release binary
         shell: bash
@@ -119,14 +119,14 @@ jobs:
           PREVIEW: ${{ inputs.preview }}
         run: |
           if [[ "${PREVIEW}" == "true" ]]; then
-            RPI_BUILD_VERSION="${PREVIEW_VERSION}" cargo build -p rpi-cli --release --locked --target ${{ matrix.target }}
+            TOM_BUILD_VERSION="${PREVIEW_VERSION}" cargo build -p tom-cli --release --locked --target ${{ matrix.target }}
           else
-            cargo build -p rpi-cli --release --locked --target ${{ matrix.target }}
+            cargo build -p tom-cli --release --locked --target ${{ matrix.target }}
           fi
 
       - name: Smoke test Intel macOS binary
         if: matrix.target == 'x86_64-apple-darwin'
-        run: target/${{ matrix.target }}/release/rpi --version
+        run: target/${{ matrix.target }}/release/tom --version
 
       - name: Stage artifact
         id: stage
@@ -135,13 +135,13 @@ jobs:
           set -euo pipefail
           version="${{ steps.version.outputs.version }}"
           target="${{ matrix.target }}"
-          name="rpi-v${version}-${target}"
+          name="tom-v${version}-${target}"
           mkdir -p dist
 
           if [[ "${target}" == *windows* ]]; then
-            bin="target/${target}/release/rpi.exe"
+            bin="target/${target}/release/tom.exe"
           else
-            bin="target/${target}/release/rpi"
+            bin="target/${target}/release/tom"
           fi
 
           if [[ ! -f "${bin}" ]]; then
@@ -224,7 +224,7 @@ jobs:
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           python scripts/prebuilt-release.py assemble --directory dist \
-            --tag "${TAG}" --commit "$(git rev-parse HEAD)" --output rpi-release.json
+            --tag "${TAG}" --commit "$(git rev-parse HEAD)" --output tom-release.json
 
       - name: Publish to GitHub Release
         env:
@@ -236,23 +236,23 @@ jobs:
           assets=(dist/*.tar.gz dist/*.zip dist/*.sha256)
           if gh release view "${TAG}" >/dev/null 2>&1; then
             # Discovery must not advertise archives while they are being replaced.
-            if gh release view "${TAG}" --json assets --jq '.assets[].name' | grep -qx rpi-release.json; then
-              gh release delete-asset "${TAG}" rpi-release.json --yes
+            if gh release view "${TAG}" --json assets --jq '.assets[].name' | grep -qx tom-release.json; then
+              gh release delete-asset "${TAG}" tom-release.json --yes
             fi
             gh release upload "${TAG}" "${assets[@]}" --clobber
           else
             if [[ "${{ inputs.preview }}" == "true" ]]; then
               gh release create "${TAG}" "${assets[@]}" \
-                --title "rpi ${TAG} (preview)" \
+                --title "tom ${TAG} (preview)" \
                 --prerelease --generate-notes
             else
               gh release create "${TAG}" "${assets[@]}" \
-                --title "rpi ${TAG}" \
+                --title "tom ${TAG}" \
                 --generate-notes
             fi
           fi
           # Upload last: a manifest means all five verified archives are ready.
-          gh release upload "${TAG}" rpi-release.json --clobber
+          gh release upload "${TAG}" tom-release.json --clobber
 
   channels:
     if: inputs.preview != true

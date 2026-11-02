@@ -2,7 +2,7 @@
 
 ## 下次直接运行
 
-从 `pi-rust` 仓库根目录执行。前提是 Python 3、Rust/Cargo 和 Go Task 已安装。下面是本机 Windows PowerShell 可直接复制的命令；**任一步失败就先保留日志排查，不要把后续部分成功当成整轮通过。** 测试不会自动安装新 binary、替换全局 DLL 或重启服务。
+从 `tom` 仓库根目录执行。前提是 Python 3、Rust/Cargo 和 Go Task 已安装。下面是本机 Windows PowerShell 可直接复制的命令；**任一步失败就先保留日志排查，不要把后续部分成功当成整轮通过。** 测试不会自动安装新 binary、替换全局 DLL 或重启服务。
 
 ### 1. 日常回归：先跑这两项
 
@@ -29,36 +29,36 @@ if ($LASTEXITCODE -ne 0) { throw '完整 workspace 测试失败' }
 这一步与源码构建分开，防止“源码已修复，但正在使用的安装版仍有问题”被遗漏：
 
 ```powershell
-$rpi = (Get-Command rpi.exe -ErrorAction Stop).Source
-& $rpi --version
+$tom = (Get-Command tom.exe -ErrorAction Stop).Source
+& $tom --version
 $diag = 'target/session-smoke-installed-' + [guid]::NewGuid().ToString('N')
-python -B scripts/session-smoke.py --rpi "$rpi" --diagnostics-dir "$diag"
+python -B scripts/session-smoke.py --tom "$tom" --diagnostics-dir "$diag"
 if ($LASTEXITCODE -ne 0) { throw "安装版回归失败，诊断目录：$diag" }
 ```
 
 要验证安装中的状态扩展，在同一 PowerShell 中继续执行；缺少 DLL 时应先确认安装位置，不要删除参数后声称扩展已通过：
 
 ```powershell
-$extensions = Join-Path $env:USERPROFILE '.rpi/agent/extensions'
+$extensions = Join-Path $env:USERPROFILE '.tom/agent/extensions'
 $diag = 'target/session-smoke-installed-state-' + [guid]::NewGuid().ToString('N')
-python -B scripts/session-smoke.py --rpi "$rpi" --diagnostics-dir "$diag" --extension "$extensions/rpi_todo.dll" --extension "$extensions/rpi_durable.dll"
+python -B scripts/session-smoke.py --tom "$tom" --diagnostics-dir "$diag" --extension "$extensions/tom_todo.dll" --extension "$extensions/tom_durable.dll"
 if ($LASTEXITCODE -ne 0) { throw "已安装状态扩展回归失败，诊断目录：$diag" }
 ```
 
 ### 3. 与相邻仓库新构建的状态扩展对比
 
-相邻仓库默认是 `../rpi-package`。仅构建和测试，不执行 install，也不替换安装中的扩展。先完成步骤 1，确保待测宿主是当前源码产物，再运行：
+相邻仓库默认是 `../tom-package`。仅构建和测试，不执行 install，也不替换安装中的扩展。先完成步骤 1，确保待测宿主是当前源码产物，再运行：
 
 ```powershell
 $siblingTarget = Join-Path $PWD 'target/session-smoke-sibling-cargo'
-cargo build --manifest-path ../rpi-package/Cargo.toml -p rpi-todo -p rpi-durable --locked --target-dir "$siblingTarget"
+cargo build --manifest-path ../tom-package/Cargo.toml -p tom-todo -p tom-durable --locked --target-dir "$siblingTarget"
 if ($LASTEXITCODE -ne 0) { throw '相邻扩展构建失败；不能记为扩展测试通过' }
 $diag = 'target/session-smoke-sibling-state-' + [guid]::NewGuid().ToString('N')
-python -B scripts/session-smoke.py --rpi target/session-smoke-cargo/debug/rpi.exe --diagnostics-dir "$diag" --extension "$siblingTarget/debug/rpi_todo.dll" --extension "$siblingTarget/debug/rpi_durable.dll"
+python -B scripts/session-smoke.py --tom target/session-smoke-cargo/debug/tom.exe --diagnostics-dir "$diag" --extension "$siblingTarget/debug/tom_todo.dll" --extension "$siblingTarget/debug/tom_durable.dll"
 if ($LASTEXITCODE -ne 0) { throw "相邻状态扩展回归失败，诊断目录：$diag" }
 ```
 
-若在步骤 1 设置了 `SESSION_CARGO_TARGET_DIR`，这里的 `--rpi` 也要指向该目录下的 binary。首次构建可能下载依赖；依赖已缓存时可为 Cargo 加 `--offline`。不要为解决构建阻塞而临时改相邻仓库的 SDK 版本或复制旧 DLL 冒充新产物。
+若在步骤 1 设置了 `SESSION_CARGO_TARGET_DIR`，这里的 `--tom` 也要指向该目录下的 binary。首次构建可能下载依赖；依赖已缓存时可为 Cargo 加 `--offline`。不要为解决构建阻塞而临时改相邻仓库的 SDK 版本或复制旧 DLL 冒充新产物。
 
 ### 4. 结果判定与诊断位置
 
@@ -84,13 +84,13 @@ if ($LASTEXITCODE -ne 0) { throw "相邻状态扩展回归失败，诊断目录�
 - **todo 添加成功，重启后 `list` 为空**：此前已在旧安装 DLL 上复现。先分别测试安装 DLL 和相邻新构建 DLL；新源码通过不代表全局安装已更新。
 - **带 durable 时 kill 重启后 `pendingResume=false`**：此前宿主曾因尾部 custom entry 遮住用户消息而漏判续跑。当前源码已有修复和 `custom_entries_do_not_hide_a_crashed_user_prompt` 回归；若安装版失败、源码版通过，先核实实际运行的 binary。
 - **构建报 SDK 字段不匹配，独立 target 构建通过**：检查跨仓库共享 Cargo target 的旧产物；这里的 Task 已显式隔离 target，不需要修改 SDK 或清空用户全局缓存。
-- **相邻旧 `tools/rpi-package-smoke` 依赖版本无法解析**：此前该工具的路径依赖要求 `^0.3.3`，与当前宿主 `0.15.0` 不匹配。应报告构建阻塞，不得计为 PASS；使用上述真实宿主流程及下文真实库测试验证当前覆盖范围。
+- **相邻旧 `tools/tom-package-smoke` 依赖版本无法解析**：此前该工具的路径依赖要求 `^0.3.3`，与当前宿主 `0.15.0` 不匹配。应报告构建阻塞，不得计为 PASS；使用上述真实宿主流程及下文真实库测试验证当前覆盖范围。
 
 ## 测试分层
 
 - `task test` 保持原样：运行 `cargo test --workspace --locked`。
-- `task test:recovery`：运行 `rpi-harness` 的 `harness_run_e2e`、`context_message_order`、`frame_progress_recovery`、`m5c_jsonl_torn_tail`、`jsonl_failure_regressions`，以及 `rpi-cli` 的 `session_cwd_restore`。它们覆盖提交记录恢复、半截 JSONL 修复、工具重放、待恢复运行、消息队列隔离和会话工作目录恢复；不等同于真实进程被终止后的端到端检查。
-- `task test:session`：先构建 `rpi-cli`、运行控制器的 Python 单元测试，再对该二进制运行 `scripts/session-smoke.py`。默认显式使用 `--target-dir target/session-smoke-cargo`，Windows binary 为该目录下的 `debug/rpi.exe`，其他平台为 `debug/rpi`。这样不会受用户全局 Cargo `build.target-dir` 影响或误测残留旧 binary；两个 Task 均可用 `SESSION_CARGO_TARGET_DIR` 覆盖构建目录。
+- `task test:recovery`：运行 `tom-harness` 的 `harness_run_e2e`、`context_message_order`、`frame_progress_recovery`、`m5c_jsonl_torn_tail`、`jsonl_failure_regressions`，以及 `tom-cli` 的 `session_cwd_restore`。它们覆盖提交记录恢复、半截 JSONL 修复、工具重放、待恢复运行、消息队列隔离和会话工作目录恢复；不等同于真实进程被终止后的端到端检查。
+- `task test:session`：先构建 `tom-cli`、运行控制器的 Python 单元测试，再对该二进制运行 `scripts/session-smoke.py`。默认显式使用 `--target-dir target/session-smoke-cargo`，Windows binary 为该目录下的 `debug/tom.exe`，其他平台为 `debug/tom`。这样不会受用户全局 Cargo `build.target-dir` 影响或误测残留旧 binary；两个 Task 均可用 `SESSION_CARGO_TARGET_DIR` 覆盖构建目录。
 
 ## 离线真实进程 smoke test
 
@@ -119,7 +119,7 @@ task test:session -- --encoding snapshot
 完整脚本接口：
 
 ```text
-python3 -B scripts/session-smoke.py --rpi <显式二进制路径> --diagnostics-dir <尚不存在的目录> [--extension <共享库路径> ...] [--encoding compact-deltas|snapshot|both]
+python3 -B scripts/session-smoke.py --tom <显式二进制路径> --diagnostics-dir <尚不存在的目录> [--extension <共享库路径> ...] [--encoding compact-deltas|snapshot|both]
 ```
 
 `--encoding` 默认为 `both`。`--extension` 可重复，每个库都应是已构建的实际文件；Windows 使用 `.dll`，Linux 使用 `.so`，macOS 使用 `.dylib`。不传此选项时，不要求任何独立扩展库。显式 DLL/共享库检查仅检验这些库与本次 smoke 场景的加载及兼容性，**不是全扩展业务功能认证**；不能据此声称 provider、subagent、btw 等业务全部通过。
@@ -130,14 +130,14 @@ python3 -B scripts/session-smoke.py --rpi <显式二进制路径> --diagnostics-
 
 ```sh
 # Linux/macOS；每次运行都换一个未使用的诊断目录。
-python3 -B scripts/session-smoke.py --rpi "$(command -v rpi)" --diagnostics-dir target/session-smoke-installed-001
+python3 -B scripts/session-smoke.py --tom "$(command -v tom)" --diagnostics-dir target/session-smoke-installed-001
 # 同时加载两个已构建库（路径仅为示例）：
-python3 -B scripts/session-smoke.py --rpi /absolute/path/to/rpi --diagnostics-dir target/session-smoke-libraries-001 --extension /absolute/path/to/libfirst.so --extension /absolute/path/to/libsecond.so
+python3 -B scripts/session-smoke.py --tom /absolute/path/to/tom --diagnostics-dir target/session-smoke-libraries-001 --extension /absolute/path/to/libfirst.so --extension /absolute/path/to/libsecond.so
 ```
 
 ```powershell
 # Windows PowerShell
-python -B scripts/session-smoke.py --rpi (Get-Command rpi.exe).Source --diagnostics-dir target/session-smoke-installed-win-001
+python -B scripts/session-smoke.py --tom (Get-Command tom.exe).Source --diagnostics-dir target/session-smoke-installed-win-001
 ```
 
 Task 默认构建目录不继承 `CARGO_TARGET_DIR`；需要共用其他目录时设置 `SESSION_CARGO_TARGET_DIR=<路径>`。也可用 `SESSION_BINARY=<实际路径>` 改测已有 binary（该任务仍执行构建；只测安装版本可直接执行脚本）。失败后保留整个诊断目录，结合进程输出、RPC 记录及 session 状态定位；不要把失败目录当成下一次运行的输出位置。分享诊断前检查其中的本地路径和消息内容。`results.json` 记录两种编码和可选状态检查的 PASS/SKIP；显式库不存在或实际加载数量不符直接失败。
@@ -150,28 +150,28 @@ Task 默认构建目录不继承 `CARGO_TARGET_DIR`；需要共用其他目录�
 
 | 测试文件 | 需要的变量 | 用途 |
 | --- | --- | --- |
-| `crates/rpi-cli/tests/provider_packages.rs` | `RPI_TEST_PROVIDER_LIBRARY` | 指向独立 `rpi-providers` 的实际 DLL/so/dylib，覆盖 provider 包策略、认证等真实 ABI 路径。 |
-| 同上 | `RPI_TEST_PROVIDER_PACKAGE` | 指向 `rpi-providers` 包目录，完整运行该测试目标时用于 link/unlink 测试；仅设置库路径不够。 |
-| `crates/rpi-cli/tests/subagent_packages.rs` 及其子模块 | `RPI_TEST_SUBAGENT_LIBRARY` | 指向独立 `rpi-subagents` 库，检查真实子代理工具、上下文、取消及生命周期。 |
-| `crates/rpi-cli/tests/btw_package.rs` | `RPI_TEST_BTW_LIBRARY` | 指向独立 `rpi-btw` 库，检查真实命令 ABI、owner 绑定及父历史隔离。 |
+| `crates/tom-cli/tests/provider_packages.rs` | `TOM_TEST_PROVIDER_LIBRARY` | 指向独立 `tom-providers` 的实际 DLL/so/dylib，覆盖 provider 包策略、认证等真实 ABI 路径。 |
+| 同上 | `TOM_TEST_PROVIDER_PACKAGE` | 指向 `tom-providers` 包目录，完整运行该测试目标时用于 link/unlink 测试；仅设置库路径不够。 |
+| `crates/tom-cli/tests/subagent_packages.rs` 及其子模块 | `TOM_TEST_SUBAGENT_LIBRARY` | 指向独立 `tom-subagents` 库，检查真实子代理工具、上下文、取消及生命周期。 |
+| `crates/tom-cli/tests/btw_package.rs` | `TOM_TEST_BTW_LIBRARY` | 指向独立 `tom-btw` 库，检查真实命令 ABI、owner 绑定及父历史隔离。 |
 
 先在对应独立包工作区构建所需库，再将上述变量设为绝对路径。按需运行：
 
 ```sh
-cargo test -p rpi-cli --test provider_packages --locked --target-dir target/session-smoke-cargo -- --nocapture
-cargo test -p rpi-cli --test subagent_packages --locked --target-dir target/session-smoke-cargo -- --nocapture
-cargo test -p rpi-cli --test btw_package --locked --target-dir target/session-smoke-cargo -- --nocapture
+cargo test -p tom-cli --test provider_packages --locked --target-dir target/session-smoke-cargo -- --nocapture
+cargo test -p tom-cli --test subagent_packages --locked --target-dir target/session-smoke-cargo -- --nocapture
+cargo test -p tom-cli --test btw_package --locked --target-dir target/session-smoke-cargo -- --nocapture
 ```
 
 本机 Windows 检查当前安装的三个真实扩展库，可直接运行以下独立 PowerShell 块。它会校验路径，并在结束时恢复原环境变量：
 
 ```powershell
-$extensions = Join-Path $env:USERPROFILE '.rpi/agent/extensions'
+$extensions = Join-Path $env:USERPROFILE '.tom/agent/extensions'
 $values = @{
-    RPI_TEST_PROVIDER_LIBRARY = "$extensions/rpi_providers.dll"
-    RPI_TEST_PROVIDER_PACKAGE = (Join-Path $PWD '../rpi-package/packages/rpi-providers')
-    RPI_TEST_SUBAGENT_LIBRARY = "$extensions/rpi_subagents.dll"
-    RPI_TEST_BTW_LIBRARY = "$extensions/rpi_btw.dll"
+    TOM_TEST_PROVIDER_LIBRARY = "$extensions/tom_providers.dll"
+    TOM_TEST_PROVIDER_PACKAGE = (Join-Path $PWD '../tom-package/packages/tom-providers')
+    TOM_TEST_SUBAGENT_LIBRARY = "$extensions/tom_subagents.dll"
+    TOM_TEST_BTW_LIBRARY = "$extensions/tom_btw.dll"
 }
 $previous = @{}
 foreach ($key in $values.Keys) {
@@ -182,7 +182,7 @@ try {
     foreach ($key in $values.Keys) {
         [Environment]::SetEnvironmentVariable($key, $values[$key], 'Process')
     }
-    cargo test -p rpi-cli --test provider_packages --test subagent_packages --test btw_package --locked --target-dir target/session-smoke-cargo -- --nocapture
+    cargo test -p tom-cli --test provider_packages --test subagent_packages --test btw_package --locked --target-dir target/session-smoke-cargo -- --nocapture
     if ($LASTEXITCODE -ne 0) { throw '真实扩展库回归失败' }
 } finally {
     foreach ($key in $values.Keys) {
@@ -197,11 +197,11 @@ try {
 cargo build -p plugin-stub --locked --target-dir target/session-smoke-cargo
 if ($LASTEXITCODE -ne 0) { throw 'plugin-stub 构建失败' }
 if (-not (Test-Path target/session-smoke-cargo/debug/plugin_stub.dll)) { throw '缺少 plugin_stub.dll' }
-cargo test -p rpi-extensions --features provider-performance --test plugin_stub_smoke --locked --target-dir target/session-smoke-cargo -- --nocapture
+cargo test -p tom-extensions --features provider-performance --test plugin_stub_smoke --locked --target-dir target/session-smoke-cargo -- --nocapture
 if ($LASTEXITCODE -ne 0) { throw 'plugin-stub 真实动态库回归失败' }
 ```
 
-`provider_packages.rs` 中的 `RPI_TEST_PACKAGE_RELOAD`、`RPI_TEST_PACKAGE_CWD` 是测试派生子进程的内部标记，由测试自身设置，不是日常手动运行的前提变量。
+`provider_packages.rs` 中的 `TOM_TEST_PACKAGE_RELOAD`、`TOM_TEST_PACKAGE_CWD` 是测试派生子进程的内部标记，由测试自身设置，不是日常手动运行的前提变量。
 
 **库未构建或对应变量未设置时，必须把真实库覆盖记为 SKIP，不得记为 PASS。** 这些测试可能通过提前返回而让 Cargo 汇总显示 `ok`；请用 `--nocapture` 查看 `SKIP` 提示，并在报告中区分“测试进程成功退出”和“真实库断言确实执行”。设置了变量但文件不存在属于错误，不应伪装成成功。默认 workspace 测试通过也不能替代这些显式真实库测试。
 
@@ -210,9 +210,9 @@ if ($LASTEXITCODE -ne 0) { throw 'plugin-stub 真实动态库回归失败' }
 `.github/workflows/ci.yml` 的现有 Ubuntu `test` job 在 workspace 测试后显式构建 CLI，再执行：
 
 ```sh
-cargo build -p rpi-cli --bin rpi --locked --target-dir target
+cargo build -p tom-cli --bin tom --locked --target-dir target
 python3 -B scripts/test_session_smoke.py
-python3 -B scripts/session-smoke.py --rpi target/debug/rpi --diagnostics-dir target/session-smoke-ci
+python3 -B scripts/session-smoke.py --tom target/debug/tom --diagnostics-dir target/session-smoke-ci
 ```
 
 CI 不传 `--extension`，因此不依赖相邻的独立包仓库或全局安装。失败时上传 `target/session-smoke-ci` 为 `session-smoke-diagnostics` artifact（包含隔离 HOME 等隐藏文件）；若尚未生成目录则不因缺少 artifact 再报错。CI 的该 smoke 结果只证明本次二进制的离线会话链路，不代表全部扩展业务得到认证。

@@ -19,7 +19,7 @@ spec.loader.exec_module(automation)
 
 # Keep this independent of YAML dependencies; compare every job's actual expression.
 CONDITION = " ".join("""${{ !(github.event_name == 'pull_request' &&
-    github.repository == 'bigfish1913/pi-rust' &&
+    github.repository == 'bigfish1913/tom' &&
     github.event.pull_request.base.ref == 'main' &&
     github.event.pull_request.head.repo.full_name == github.repository &&
     startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -54,10 +54,10 @@ class ReadinessWorkflowTests(unittest.TestCase):
                   "github.event.pull_request.draft": True}
         scenarios = [({}, False), ({"github.event.pull_request.draft": False}, True),
                      ({"github.event.pull_request.head.ref": "feature"}, True),
-                     ({"github.event.pull_request.head.repo.full_name": "fork/pi-rust"}, True),
+                     ({"github.event.pull_request.head.repo.full_name": "fork/tom"}, True),
                      ({"github.event.pull_request.head.repo.full_name": None}, True),
                      ({"github.event.pull_request.base.ref": "preview"}, True),
-                     ({"github.repository": "fork/pi-rust"}, True),
+                     ({"github.repository": "fork/tom"}, True),
                      ({"github.event_name": "push"}, True),
                      ({"github.event_name": "workflow_dispatch"}, True)]
         for overrides, expected in scenarios:
@@ -89,7 +89,7 @@ class ReadinessWorkflowTests(unittest.TestCase):
         self.assertIn("EXISTING_RELEASE_PR_JSON: ${{ steps.draft-release-pr.outputs.pr }}", self.release)
         self.assertIn("python3 scripts/test_release_pr_readiness.py", self.ci)
         # Do not weaken the actual consistency check or workspace tests.
-        self.assertIn("git diff --exit-code -- crates/rpi-cli/embedded-docs", self.ci)
+        self.assertIn("git diff --exit-code -- crates/tom-cli/embedded-docs", self.ci)
         self.assertIn("run: cargo test --workspace --locked", self.ci)
 
 
@@ -131,7 +131,7 @@ class DraftReleasePrTests(unittest.TestCase):
             pr[section][field] = value
             variants.append(pr)
         for section in ("head", "base"):
-            for repo in ({"full_name": "fork/pi-rust"}, None):
+            for repo in ({"full_name": "fork/tom"}, None):
                 pr = copy.deepcopy(self.pr)
                 pr[section]["repo"] = repo
                 variants.append(pr)
@@ -145,7 +145,7 @@ class DraftReleasePrTests(unittest.TestCase):
             self.invoke([[self.pr, self.pr | {"number": 124}]])
 
     def test_unauthorized_events_and_untested_checkout_fail_before_api(self):
-        for overrides in ({"GITHUB_REPOSITORY": "fork/pi-rust"}, {"GITHUB_REF": "refs/heads/preview"},
+        for overrides in ({"GITHUB_REPOSITORY": "fork/tom"}, {"GITHUB_REF": "refs/heads/preview"},
                           {"GITHUB_EVENT_NAME": "pull_request"}, {"GITHUB_SHA": "b" * 40}):
             with self.subTest(overrides=overrides), \
                     patch.dict(os.environ, self.env | overrides), \
@@ -173,7 +173,7 @@ class SyncReleasePrTests(unittest.TestCase):
             with self.subTest(action_output=action_output), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 (root / ".git").mkdir()
-                helper = root / ".git/rpi-release-helper"
+                helper = root / ".git/tom-release-helper"
                 helper.write_text('#!/bin/sh\necho "validate $*" >> commands.log\nexit "${FAIL_VALIDATE:-0}"\n')
                 helper.chmod(0o755)
                 # Mock external commands; run the real orchestration script, offline.

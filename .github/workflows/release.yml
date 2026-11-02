@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   detect:
-    if: github.repository == 'bigfish1913/pi-rust' && github.ref == 'refs/heads/main'
+    if: github.repository == 'bigfish1913/tom' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -108,9 +108,9 @@ jobs:
           VERSION: ${{ needs.detect.outputs.version }}
         run: |
           test -n "$CARGO_REGISTRY_TOKEN" || { echo '::error::Missing CARGO_REGISTRY_TOKEN'; exit 1; }
-          rustc --edition=2021 release-helper.rs -o .git/rpi-release-helper
-          .git/rpi-release-helper validate "$VERSION"
-          .git/rpi-release-helper publish "$VERSION"
+          rustc --edition=2021 release-helper.rs -o .git/tom-release-helper
+          .git/tom-release-helper validate "$VERSION"
+          .git/tom-release-helper publish "$VERSION"
       - name: Create the tag without moving existing tags
         env:
           GH_TOKEN: ${{ github.token }}

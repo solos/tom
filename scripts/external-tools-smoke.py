@@ -2,7 +2,7 @@
 """Real native JSONL external-tool smoke; Python 3 standard library only.
 
 Run with an explicitly built Stage3 binary (never searches PATH or builds):
-  python -B scripts/external-tools-smoke.py --rpi <target/debug/rpi.exe> \
+  python -B scripts/external-tools-smoke.py --tom <target/debug/tom.exe> \
       --diagnostics-dir <Cargo-target/acp-stage3-01/smoke-worker-unique>
 
 All homes, configuration, sessions, temporary files and wire/provider logs are
@@ -176,7 +176,7 @@ class Model:
 
 
 def environment(root, model):
-    # Positive allowlist: no inherited auth, providers, proxies, config or RPI_*.
+    # Positive allowlist: no inherited auth, providers, proxies, config or TOM_*.
     allowed = {"SYSTEMROOT", "WINDIR", "COMSPEC", "PATH", "PATHEXT", "SYSTEMDRIVE",
                "PROCESSOR_ARCHITECTURE", "NUMBER_OF_PROCESSORS"}
     env = {k: v for k, v in os.environ.items() if k.upper() in allowed}
@@ -187,7 +187,7 @@ def environment(root, model):
                LOCALAPPDATA=str(root / "localappdata"), XDG_CONFIG_HOME=str(home / ".config"),
                XDG_CACHE_HOME=str(home / ".cache"), XDG_DATA_HOME=str(home / ".local/share"),
                TEMP=str(root / "tmp"), TMP=str(root / "tmp"), TMPDIR=str(root / "tmp"),
-               RPI_CODING_AGENT_DIR=str(root / "agent"), RPI_OFFLINE="1", NO_COLOR="1")
+               TOM_CODING_AGENT_DIR=str(root / "agent"), TOM_OFFLINE="1", NO_COLOR="1")
     dump(root / "agent" / "auth.json", {})
     dump(root / "agent" / "settings.json", {
         "defaultProvider": "fixture", "defaultModel": "synthetic", "defaultThinkingLevel": "off"})
@@ -200,12 +200,12 @@ def environment(root, model):
 
 
 class Native:
-    def __init__(self, rpi, root, encoding, model):
+    def __init__(self, tom, root, encoding, model):
         self.root, self.frames, self.pending = root, [], []
         self.queue = queue.Queue()
         self.counter = 0
         self.stderr = (root / "native-stderr.log").open("w", encoding="utf-8")
-        command = [str(rpi), "--mode", "rpc", "--provider", "fixture", "--model", "synthetic",
+        command = [str(tom), "--mode", "rpc", "--provider", "fixture", "--model", "synthetic",
                    "--session-dir", str(root / "sessions"), "--session-id", str(uuid.uuid4()),
                    "--rpc-message-updates", encoding, "--no-extensions", "--no-skills",
                    "--no-prompt-templates", "--no-context-files", "--local-only"]
@@ -435,7 +435,7 @@ def eof_model_only(host, model):
     assert sum(f.get("type") == "agent_settled" for f in host.frames) == 1
 
 
-def run(rpi, diagnostics):
+def run(tom, diagnostics):
     passed, failed = [], []
     for encoding in ("compact-deltas", "snapshot"):
         for name, scenario in (("roundtrip-abort-atomicity", roundtrip),
@@ -446,7 +446,7 @@ def run(rpi, diagnostics):
             label = encoding + ": " + name
             try:
                 try:
-                    host = Native(rpi, root, encoding, model)
+                    host = Native(tom, root, encoding, model)
                     host.ready(encoding)
                     scenario(host, model)
                 finally:
@@ -473,16 +473,16 @@ def run(rpi, diagnostics):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rpi", required=True, type=Path)
+    parser.add_argument("--tom", required=True, type=Path)
     parser.add_argument("--diagnostics-dir", required=True, type=Path)
     args = parser.parse_args()
-    rpi = args.rpi.resolve(strict=True)
-    assert rpi.is_file(), "--rpi must name a native executable, not a directory"
+    tom = args.tom.resolve(strict=True)
+    assert tom.is_file(), "--tom must name a native executable, not a directory"
     diagnostics = args.diagnostics_dir.resolve()
     # Refuse reuse: every run has independent native homes and session state.
     diagnostics.mkdir(parents=True, exist_ok=False)
     try:
-        passed = run(rpi, diagnostics)
+        passed = run(tom, diagnostics)
     except BaseException:
         (diagnostics / "failure.txt").write_text(traceback.format_exc(), encoding="utf-8")
         raise

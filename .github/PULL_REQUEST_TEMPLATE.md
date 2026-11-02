@@ -13,15 +13,15 @@ the shared workspace version and release changelog.
 
 <!-- Tick everything the diff touches. -->
 
-- [ ] `rpi-telemetry`
-- [ ] `rpi-ai`
-- [ ] `rpi-agent`
-- [ ] `rpi-tools`
-- [ ] `rpi-harness`
-- [ ] `rpi-tui`
-- [ ] `rpi-cli`
-- [ ] `rpi-plugin-sdk`
-- [ ] `rpi-extensions`
+- [ ] `tom-telemetry`
+- [ ] `tom-ai`
+- [ ] `tom-agent`
+- [ ] `tom-tools`
+- [ ] `tom-harness`
+- [ ] `tom-tui`
+- [ ] `tom-cli`
+- [ ] `tom-plugin-sdk`
+- [ ] `tom-extensions`
 - [ ] docs / website / CI only
 
 ## Type of change
@@ -57,7 +57,7 @@ API addition, a change to session persistence, the plugin ABI, or the security
 boundary described in SECURITY.md.
 -->
 
-- [ ] I kept the `rpi-telemetry → rpi-ai → rpi-agent → rpi-tools → rpi-harness → rpi-cli`
+- [ ] I kept the `tom-telemetry → tom-ai → tom-agent → tom-tools → tom-harness → tom-cli`
       dependency direction (no new backwards edges).
 - [ ] Compilation is warning-free (CI checks Linux and Windows with `-D warnings`).
 - [ ] New behaviour has a test that runs offline (no live provider, no network).

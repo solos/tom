@@ -1,7 +1,7 @@
-# rpi 使用手册
+# tom 使用手册
 
-这是一份面向使用者和扩展作者的 rpi 手册，涵盖安装、配置、会话、插件、远程模式和故障排查。
-具体实现以当前仓库和已安装的 rpi 二进制为准。
+这是一份面向使用者和扩展作者的 tom 手册，涵盖安装、配置、会话、插件、远程模式和故障排查。
+具体实现以当前仓库和已安装的 tom 二进制为准。
 
 ## 1. 安装
 
@@ -10,20 +10,20 @@
 需要 Rust/Cargo：
 
 ```bash
-cargo install rpi-cli
-rpi --version
-rpi --help
+cargo install tom-cli
+tom --version
+tom --help
 ```
 
 从本仓库源码安装开发版本：
 
 ```bash
-git clone https://github.com/bigfish1913/pi-rust.git
-cd pi-rust
-cargo install --path crates/rpi-cli --force
+git clone https://github.com/bigfish1913/tom.git
+cd tom
+cargo install --path crates/tom-cli --force
 ```
 
-`cargo install` 安装的是可执行文件；它不等同于 `rpi install`。后者用于安装由 `rpi-plugin-sdk` 构建的 Rust 动态库扩展。
+`cargo install` 安装的是可执行文件；它不等同于 `tom install`。后者用于安装由 `tom-plugin-sdk` 构建的 Rust 动态库扩展。
 
 ### 从源码启动与构建
 
@@ -31,21 +31,21 @@ cargo install --path crates/rpi-cli --force
 
 ```bash
 # 直接启动 CLI
-cargo run -p rpi-cli
+cargo run -p tom-cli
 
-# 向 CLI 传递参数（`--` 后的内容属于 rpi）
-cargo run -p rpi-cli -- -p "总结 README.md"
-cargo run -p rpi-cli -- --mode json -p "列出项目中的 crates"
+# 向 CLI 传递参数（`--` 后的内容属于 tom）
+cargo run -p tom-cli -- -p "总结 README.md"
+cargo run -p tom-cli -- --mode json -p "列出项目中的 crates"
 
 # 构建 release 版本
-cargo build -p rpi-cli --release
+cargo build -p tom-cli --release
 ```
 
-构建完成后，Windows 可执行文件位于 `target/release/rpi.exe`，Linux/macOS 下通常为 `target/release/rpi`。也可以把本地 CLI 安装到 Cargo 的 bin 目录后直接使用：
+构建完成后，Windows 可执行文件位于 `target/release/tom.exe`，Linux/macOS 下通常为 `target/release/tom`。也可以把本地 CLI 安装到 Cargo 的 bin 目录后直接使用：
 
 ```bash
-cargo install --path crates/rpi-cli --force
-rpi
+cargo install --path crates/tom-cli --force
+tom
 ```
 
 离线示例（不需要 API Key 或网络）可以使用：
@@ -59,21 +59,21 @@ cargo run -p minimal
 交互模式：
 
 ```bash
-rpi
-rpi "解释当前项目的目录结构"
+tom
+tom "解释当前项目的目录结构"
 ```
 
 单次输出模式：
 
 ```bash
-rpi -p "总结 README.md"
-rpi --mode json -p "列出项目的风险"
+tom -p "总结 README.md"
+tom --mode json -p "列出项目的风险"
 ```
 
 通过 `@` 把文件放进第一条消息：
 
 ```bash
-rpi @README.md "给出这个项目的改进建议"
+tom @README.md "给出这个项目的改进建议"
 ```
 
 ## 2. 模型和凭据
@@ -83,24 +83,24 @@ rpi @README.md "给出这个项目的改进建议"
 当多个来源同时存在时，优先级为：
 
 1. `--api-key`
-2. `~/.rpi/auth.json`（由 `rpi auth login` 写入）
-3. `~/.rpi/agent/models.json` 中对应 provider 的 `apiKey`
+2. `~/.tom/auth.json`（由 `tom auth login` 写入）
+3. `~/.tom/agent/models.json` 中对应 provider 的 `apiKey`
 4. 环境变量
 
 Anthropic 使用 `ANTHROPIC_API_KEY` 或 `ANTHROPIC_AUTH_TOKEN`；OpenAI-compatible provider 使用 `OPENAI_API_KEY`。检查凭据时不会发起网络请求：
 
 ```bash
-rpi auth check
-rpi auth check --provider gateway --json
-rpi auth login
-rpi auth logout
+tom auth check
+tom auth check --provider gateway --json
+tom auth login
+tom auth logout
 ```
 
 不要把密钥写入 Git 仓库或项目文档。
 
 ### 自定义 Provider
 
-配置文件默认是 `~/.rpi/agent/models.json`，也可以通过 `RPI_CODING_AGENT_DIR` 指定 agent 配置目录：
+配置文件默认是 `~/.tom/agent/models.json`，也可以通过 `TOM_CODING_AGENT_DIR` 指定 agent 配置目录：
 
 ```jsonc
 {
@@ -125,7 +125,7 @@ rpi auth logout
 }
 ```
 
-`models` 可以省略（或留空）。此时 rpi 会在启动时以及 `--list-models` 时自动向 provider 拉取模型目录：OpenAI 兼容协议读取 `{baseUrl}/models`，Anthropic Messages 读取 `{baseUrl}/v1/models`。结果缓存在 `~/.rpi/agent/models.discovered.json`，加载 `models.json` 时合并到对应 provider；只有需要固定元数据（上下文窗口、价格、thinking 级别等）的模型才需要手写。显式配置的 `models` 始终优先；`--offline` 跳过网络请求，但仍使用上次的缓存。启动时缓存有效期为 15 分钟（拉取失败也会缓存同样时长，避免每次启动都等待超时），而 `--list-models` 总是重新向端点查询。交互式添加 provider 时，在 model id 一步输入 `auto` 也会写入空列表并交给自动发现。
+`models` 可以省略（或留空）。此时 tom 会在启动时以及 `--list-models` 时自动向 provider 拉取模型目录：OpenAI 兼容协议读取 `{baseUrl}/models`，Anthropic Messages 读取 `{baseUrl}/v1/models`。结果缓存在 `~/.tom/agent/models.discovered.json`，加载 `models.json` 时合并到对应 provider；只有需要固定元数据（上下文窗口、价格、thinking 级别等）的模型才需要手写。显式配置的 `models` 始终优先；`--offline` 跳过网络请求，但仍使用上次的缓存。启动时缓存有效期为 15 分钟（拉取失败也会缓存同样时长，避免每次启动都等待超时），而 `--list-models` 总是重新向端点查询。交互式添加 provider 时，在 model id 一步输入 `auto` 也会写入空列表并交给自动发现。
 
 模型条目还可以配置 `cost`，单价单位为 **美元 / 百万 token**，例如：
 
@@ -144,17 +144,17 @@ rpi auth logout
 以上为示例价格。宿主按每次实际用量计算 `usage.cost`，供页脚和统计插件累计展示费用。
 可选的 `cost.tiers` 数组用于阶梯定价，每项包含相同的四个价格字段和 `inputTokensAbove`；
 当输入与缓存 token 总数超过阈值时，使用已超过的最高阈值对应的价格。
-未配置 `cost` 的自定义模型默认使用零单价。修改配置后重启 rpi 生效。
+未配置 `cost` 的自定义模型默认使用零单价。修改配置后重启 tom 生效。
 
 选择模型：
 
 ```bash
-rpi --model gateway/custom-claude -p "hello"
-rpi --model openai-gateway/custom-model -p "hello"
-rpi --provider gateway --model custom-claude -p "hello"
+tom --model gateway/custom-claude -p "hello"
+tom --model openai-gateway/custom-model -p "hello"
+tom --provider gateway --model custom-claude -p "hello"
 ```
 
-不传 `--model` 时，rpi 会优先选择已经认证的模型。标准 Anthropic 凭据存在时使用内置默认模型；只有自定义 gateway 已认证时，会选择该 gateway 的第一个可用模型。
+不传 `--model` 时，tom 会优先选择已经认证的模型。标准 Anthropic 凭据存在时使用内置默认模型；只有自定义 gateway 已认证时，会选择该 gateway 的第一个可用模型。
 
 Anthropic 的兼容网关还可以使用：
 
@@ -203,33 +203,33 @@ ANTHROPIC_AUTH_TOKEN=token
 --server [--port <n>] [--bind <ip>]
                         无头服务端（启动时打印 token）
 --connect <host:port>   远程客户端 TUI（零本地资源）
---token <token>         远程认证 token（也支持环境变量 RPI_SERVER_TOKEN）
+--token <token>         远程认证 token（也支持环境变量 TOM_SERVER_TOKEN）
 ```
 
 子命令：
 
 ```text
-rpi auth login|check|logout
-rpi events path|tail    检查扩展事件日志（需 RPI_EVENT_LOG=1）
-rpi install <crate>
-rpi uninstall <crate>
-rpi update                 # 更新 rpi CLI 自身
-rpi dev [options]          # 开发 Rust 扩展：编译、watch、热重载
-rpi dev-local [options]    # 只调试当前 Rust 扩展（隔离模式）
-rpi package link|list|unlink # 管理项目本地 Rust 扩展包
+tom auth login|check|logout
+tom events path|tail    检查扩展事件日志（需 TOM_EVENT_LOG=1）
+tom install <crate>
+tom uninstall <crate>
+tom update                 # 更新 tom CLI 自身
+tom dev [options]          # 开发 Rust 扩展：编译、watch、热重载
+tom dev-local [options]    # 只调试当前 Rust 扩展（隔离模式）
+tom package link|list|unlink # 管理项目本地 Rust 扩展包
 ```
 
 ### CLI 自更新
 
-`rpi update` 默认从 GitHub Release 下载预编译的 CLI，不需要本地 Rust/Cargo。
-版本按 crates.io 的发布记录解析；`rpi-release.json` 提供各平台下载地址、大小和
+`tom update` 默认从 GitHub Release 下载预编译的 CLI，不需要本地 Rust/Cargo。
+版本按 crates.io 的发布记录解析；`tom-release.json` 提供各平台下载地址、大小和
 压缩包/可执行文件的 SHA-256。校验目标平台、完整性和实际版本后，原子替换当前 CLI。
 Windows 会暂存更新，等待当前进程退出后完成替换。
 
-`rpi update --force` 重新安装已解析的版本；`rpi update --build` 显式使用 Cargo 源码编译。
+`tom update --force` 重新安装已解析的版本；`tom update --build` 显式使用 Cargo 源码编译。
 缺少 manifest、下载失败或校验不通过都会报错并保留原版本，不会自动转为编译。
 `--offline` 仅报告缓存的版本信息，不下载也不编译。旧 Release 没有 manifest 时，
-可等待协议资产补齐，或显式使用 `rpi update --build`。
+可等待协议资产补齐，或显式使用 `tom update --build`。
 
 ### 启动资源清单
 
@@ -246,8 +246,8 @@ Windows 会暂存更新，等待当前进程退出后完成替换。
 更新后第一次启动新交互会话，会展示自上次阅读以来的新版本说明，后续启动不再重复。
 恢复已有会话时，提示会延后到下一次新会话。
 
-rpi 使用全局 `settings.json` 中的 `lastRpiChangelogVersion` 记录已读版本，避免导入的
-`lastChangelogVersion` 干扰。已有配置缺少 rpi 标记时，只补充展示当前版本一次；首次安装
+tom 使用全局 `settings.json` 中的 `lastTomChangelogVersion` 记录已读版本，避免导入的
+`lastChangelogVersion` 干扰。已有配置缺少 tom 标记时，只补充展示当前版本一次；首次安装
 直接建立基线。设置 `collapseChangelog: true` 可显示简短更新提示。
 
 ### 跳到最新消息
@@ -264,12 +264,12 @@ rpi 使用全局 `settings.json` 中的 `lastRpiChangelogVersion` 记录已读�
 把 agent 跑在无头服务端，另一个进程用 TUI 远程驱动。客户端**无任何本地 agent 资源**。
 
 ```bash
-rpi --server --port 9899          # 服务端：启动时打印 token
-rpi --connect 127.0.0.1:9899 --token <token>   # 客户端
+tom --server --port 9899          # 服务端：启动时打印 token
+tom --connect 127.0.0.1:9899 --token <token>   # 客户端
 
 # 或通过环境变量传递 token
-export RPI_SERVER_TOKEN=<token>
-rpi --connect 127.0.0.1:9899
+export TOM_SERVER_TOKEN=<token>
+tom --connect 127.0.0.1:9899
 ```
 
 服务端默认开启 token 认证（`--no-token` 可关闭）。客户端支持 `/state`、`/model`、
@@ -279,9 +279,9 @@ rpi --connect 127.0.0.1:9899
 
 ## 4. 内置工具
 
-默认工具包含 Pi 的 `read`、`bash`、`edit`、`write`，以及 rpi 自带的只读 `docs` 文档查询工具。Windows 上还会默认注册 `powershell`。`docs` 可以查询使用手册、扩展开发、Agent 项目结构、Rust 调试和架构说明；`grep`、`find`、`ls` 仍保留为库实现，但不由 CLI 默认注册。
+默认工具包含 Pi 的 `read`、`bash`、`edit`、`write`，以及 tom 自带的只读 `docs` 文档查询工具。Windows 上还会默认注册 `powershell`。`docs` 可以查询使用手册、扩展开发、Agent 项目结构、Rust 调试和架构说明；`grep`、`find`、`ls` 仍保留为库实现，但不由 CLI 默认注册。
 
-可以通过 `.rpi/settings.json` 的 `defaultTools` 字段（或简写 `default_tools`）在未指定
+可以通过 `.tom/settings.json` 的 `defaultTools` 字段（或简写 `default_tools`）在未指定
 `--tools` 时限定启动工具集：
 
 ```json
@@ -293,16 +293,16 @@ rpi --connect 127.0.0.1:9899
 需要限制工具范围时，显式列出 Pi 的四个工具：
 
 ```bash
-rpi --tools read,bash,edit,write,docs -p "检查并修改项目文件"
+tom --tools read,bash,edit,write,docs -p "检查并修改项目文件"
 ```
 
 ## 5. 项目目录和资源优先级
 
-rpi 使用自己的 `.rpi` 目录：
+tom 使用自己的 `.tom` 目录：
 
 ```text
 项目/
-└── .rpi/
+└── .tom/
     ├── settings.json
     ├── SYSTEM.md
     ├── APPEND_SYSTEM.md
@@ -312,7 +312,7 @@ rpi 使用自己的 `.rpi` 目录：
     └── extensions/
 ```
 
-全局资源默认位于 `~/.rpi/agent/`，包括 `settings.json`、`models.json`、`skills/`、`prompts/`、`themes/` 和 `extensions/`。同名资源发生冲突时，项目资源优先于全局资源。
+全局资源默认位于 `~/.tom/agent/`，包括 `settings.json`、`models.json`、`skills/`、`prompts/`、`themes/` 和 `extensions/`。同名资源发生冲突时，项目资源优先于全局资源。
 
 ### 自定义主题
 
@@ -320,17 +320,17 @@ rpi 使用自己的 `.rpi` 目录：
 0-255 调色板索引与 `vars` 变量引用；缺省字段回落默认配色）。三个来源可用：
 
 - 内置 preset：`dark` / `light` / `monochrome`；
-- 文件路径：`rpi --theme ~/ocean.json`，或 `settings.json` 的 `"theme"` 字段写路径
+- 文件路径：`tom --theme ~/ocean.json`，或 `settings.json` 的 `"theme"` 字段写路径
   （`--theme` 优先于 settings；加载失败时警告并回落默认主题，不阻断启动）；
-- 主题目录发现：`~/.rpi/agent/themes/*.json`（全局）与 `.rpi/themes/*.json`（项目，
+- 主题目录发现：`~/.tom/agent/themes/*.json`（全局）与 `.tom/themes/*.json`（项目，
   优先于全局）。`/theme` 选择器在三个内置项之后列出发现的主题（按文件名），
   选中即生效并持久化；`/theme <名字>` 直达应用。扩展包也可贡献主题
   （`resources_discover` 的 `themePaths`，优先级在目录之后）。
 
 `--no-themes` 关闭目录发现与扩展主题（内置 preset 仍可用）。untrusted 项目不会
-加载其 `.rpi/themes/`；`/reload` 会重建主题列表，被移除的激活主题回落默认配色。
+加载其 `.tom/themes/`；`/reload` 会重建主题列表，被移除的激活主题回落默认配色。
 
-项目级 `.rpi/settings.json` 可以追加资源目录：
+项目级 `.tom/settings.json` 可以追加资源目录：
 
 ```json
 {
@@ -340,51 +340,51 @@ rpi 使用自己的 `.rpi` 目录：
 }
 ```
 
-路径相对于项目根目录；`skills`、`prompts`、`extensions` 是对应 `*Dirs` 字段的简写。自定义目录会与 `.rpi` 和全局约定目录一起加载。全局 `~/.rpi/agent/settings.json` 也支持这些字段，相对路径相对于 agent 目录。
+路径相对于项目根目录；`skills`、`prompts`、`extensions` 是对应 `*Dirs` 字段的简写。自定义目录会与 `.tom` 和全局约定目录一起加载。全局 `~/.tom/agent/settings.json` 也支持这些字段，相对路径相对于 agent 目录。
 
 只加载当前项目的 package/resource、排除全局资源时，使用以下任一等价参数：
 
 ```bash
-rpi --package-only
-rpi --project-only
+tom --package-only
+tom --project-only
 ```
 
-两者都会加载当前项目的 skills、prompts、themes、extensions 和 packages，并读取项目 `.rpi/settings.json`；不会自动加载全局资源。`--local-only` 语义不同，只加载通过 `--extensions-dir` 或 `--extension` 显式指定的扩展。
+两者都会加载当前项目的 skills、prompts、themes、extensions 和 packages，并读取项目 `.tom/settings.json`；不会自动加载全局资源。`--local-only` 语义不同，只加载通过 `--extensions-dir` 或 `--extension` 显式指定的扩展。
 
 配置目录可以重定位：
 
 ```bash
-RPI_CODING_AGENT_DIR=/work/rpi-agent rpi
+TOM_CODING_AGENT_DIR=/work/tom-agent tom
 ```
 
 会话默认保存到 agent 配置目录下的 sessions；`--no-session` 可使用临时会话。
 
 ## 6. Rust 插件
 
-Rust 原生插件是 `cdylib`，只依赖 `rpi-plugin-sdk`，由 `rpi-extensions` 动态加载：
+Rust 原生插件是 `cdylib`，只依赖 `tom-plugin-sdk`，由 `tom-extensions` 动态加载：
 
 ```bash
 cargo build -p plugin-stub
-rpi --extensions-dir target/debug -p 'echo "hi"'
+tom --extensions-dir target/debug -p 'echo "hi"'
 ```
 
 安装预编译扩展（默认，不需要 Rust/Cargo）：
 
 ```bash
-rpi install rpi-todo
-rpi install rpi-todo --version 0.2.0
-rpi install rpi-todo --force # 同版本重装
+tom install tom-todo
+tom install tom-todo --version 0.2.0
+tom install tom-todo --force # 同版本重装
 ```
 
-`rpi install <包名>` 可直接安装或升级；目标版本已安装时会提示并跳过。同版本重装或降级需要 `--force`。源码构建也遵循这一规则，本地开发修改代码但未更改版本时，使用 `--force` 重装。
+`tom install <包名>` 可直接安装或升级；目标版本已安装时会提示并跳过。同版本重装或降级需要 `--force`。源码构建也遵循这一规则，本地开发修改代码但未更改版本时，使用 `--force` 重装。
 
-安装器从 crates.io 选择最新未撤回的稳定版本，并用包的 `repository` 元数据找到 GitHub 仓库，再读取 `<包名>-v<版本>` Release 中的 `rpi-extension.json`。它按精确目标三元组匹配预编译文件，校验压缩包大小和 SHA-256、解压后的库文件 SHA-256、平台架构及声明的 SDK ABI。库文件名以 manifest 的 `library.path` 为准。同一仓库里的扩展可以独立版本发布。
+安装器从 crates.io 选择最新未撤回的稳定版本，并用包的 `repository` 元数据找到 GitHub 仓库，再读取 `<包名>-v<版本>` Release 中的 `tom-extension.json`。它按精确目标三元组匹配预编译文件，校验压缩包大小和 SHA-256、解压后的库文件 SHA-256、平台架构及声明的 SDK ABI。库文件名以 manifest 的 `library.path` 为准。同一仓库里的扩展可以独立版本发布。
 
 指定自定义 GitHub 仓库（也接受完整 HTTPS 仓库 URL）：
 
 ```bash
-rpi install my-extension --github owner/repo --version 1.2.3
-rpi install my-extension --github https://github.com/owner/repo
+tom install my-extension --github owner/repo --version 1.2.3
+tom install my-extension --github https://github.com/owner/repo
 ```
 
 自定义仓库也须发布同一分发协议。显式仓库不依赖 crates.io；省略版本时，只在该仓库的 `<包名>-v<版本>` 标签中选择最新稳定版本。不会使用仓库的全局 latest Release。后续 `--force` 重装和启动更新检查会保留来源，并核对新版本的 manifest 是否适配当前平台。
@@ -392,52 +392,52 @@ rpi install my-extension --github https://github.com/owner/repo
 发布者必须先上传所声明平台的压缩包，最后上传 manifest。manifest 尚未发布、目标平台缺失或校验不通过时安装失败，不会自动编译或选择其他版本。需要源码编译时显式使用：
 
 ```bash
-rpi install rpi-todo --build
-rpi install rpi-todo --build --version 0.2.0 --force
+tom install tom-todo --build
+tom install tom-todo --build --version 0.2.0 --force
 ```
 
 预编译安装记录包括版本、仓库、目标平台、源码提交、SDK ABI 和校验值；安装与卸载使用同一事务机制。加载时仍会验证实际插件入口与 API 结构大小。系统原生运行库依赖仍由操作系统提供。
 
-包可以在库文件旁附带运行所需的文件，例如 Node 工作进程 `runtime/main.mjs`。压缩包根目录的 `runtime-assets.json` 索引由包的发布构建工具生成，列出每个文件的路径、大小和 SHA-256。安装器先在内存中校验全部内容，再与库文件一起以事务方式写入扩展目录，并记录在安装注册表中。升级会替换这些文件；卸载会连同因此变空的目录一并删除。路径须为相对的 ASCII 普通路径，不得包含 `..`、隐藏组件、`node_modules`、原生库后缀、Windows 设备名（如 `CON`、`NUL`、`COM1`）、以点结尾的组件、符号链接或索引未声明的文件；单文件不超过 128 MiB，展开后的总量不超过 256 MiB，压缩包条目总数不超过 128。没有索引的压缩包只安装库文件。旧版 rpi 不支持此功能：它读取这类压缩包时只安装库文件而不会拒绝，因此发布声明了附属文件的包之前，应先升级 rpi。
+包可以在库文件旁附带运行所需的文件，例如 Node 工作进程 `runtime/main.mjs`。压缩包根目录的 `runtime-assets.json` 索引由包的发布构建工具生成，列出每个文件的路径、大小和 SHA-256。安装器先在内存中校验全部内容，再与库文件一起以事务方式写入扩展目录，并记录在安装注册表中。升级会替换这些文件；卸载会连同因此变空的目录一并删除。路径须为相对的 ASCII 普通路径，不得包含 `..`、隐藏组件、`node_modules`、原生库后缀、Windows 设备名（如 `CON`、`NUL`、`COM1`）、以点结尾的组件、符号链接或索引未声明的文件；单文件不超过 128 MiB，展开后的总量不超过 256 MiB，压缩包条目总数不超过 128。没有索引的压缩包只安装库文件。旧版 tom 不支持此功能：它读取这类压缩包时只安装库文件而不会拒绝，因此发布声明了附属文件的包之前，应先升级 tom。
 
 本地开发：
 
 ```bash
-rpi install my-extension --path ../my-rpi-extension --force
+tom install my-extension --path ../my-tom-extension --force
 ```
 
 开发扩展项目时使用 watch 模式：
 
 ```bash
-cd ../my-rpi-extension
-rpi dev
-# 多扩展 workspace：rpi dev --package my-extension
-# 只调试当前扩展：rpi dev-local（隔离模式，不加载全局扩展）
+cd ../my-tom-extension
+tom dev
+# 多扩展 workspace：tom dev --package my-extension
+# 只调试当前扩展：tom dev-local（隔离模式，不加载全局扩展）
 ```
 
-`rpi dev` 会自动识别 Cargo `cdylib`、首次编译并从 `.rpi/extensions/.dev` 加载版本化产物。源码变化会触发重新编译和热重载；手工执行 `/reload` 也会先重新编译。编译失败时继续保留当前已经加载的版本。
+`tom dev` 会自动识别 Cargo `cdylib`、首次编译并从 `.tom/extensions/.dev` 加载版本化产物。源码变化会触发重新编译和热重载；手工执行 `/reload` 也会先重新编译。编译失败时继续保留当前已经加载的版本。
 
 如果希望把开发好的扩展固定到某个项目，可使用项目包命令：
 
 ```bash
-rpi package link --path ../my-extension --package my-extension
-rpi package list
-# 之后在该项目目录直接运行 rpi 即可加载
-rpi package unlink my-extension
+tom package link --path ../my-extension --package my-extension
+tom package list
+# 之后在该项目目录直接运行 tom 即可加载
+tom package unlink my-extension
 ```
 
-项目包位于 `.rpi/packages/<name>/`，是受信任的本机 Rust 动态库；它不是 npm/Node Pi package。全局安装仍使用 `rpi install`。完整模板和边界规则见在线扩展作者指南：<https://rpi.laofu.online/extension-authoring.md>`，调试技巧见 `docs` 的 `debugging` 主题。
+项目包位于 `.tom/packages/<name>/`，是受信任的本机 Rust 动态库；它不是 npm/Node Pi package。全局安装仍使用 `tom install`。完整模板和边界规则见在线扩展作者指南：<https://tom.laofu.online/extension-authoring.md>`，调试技巧见 `docs` 的 `debugging` 主题。
 
-安装后的动态库位于 `~/.rpi/agent/extensions`（或 `RPI_CODING_AGENT_DIR` 指定的目录），下次启动 rpi 时加载。插件通过稳定 ABI 注册工具、Provider、事件处理器和资源处理器；不要直接依赖 `rpi-cli` 的私有模块。
+安装后的动态库位于 `~/.tom/agent/extensions`（或 `TOM_CODING_AGENT_DIR` 指定的目录），下次启动 tom 时加载。插件通过稳定 ABI 注册工具、Provider、事件处理器和资源处理器；不要直接依赖 `tom-cli` 的私有模块。
 
 ### 网页搜索与抓取
 
-联网工具由独立的 [rpi-package 扩展](https://github.com/pi-rust/rpi-package) 提供，
-不属于 CLI 默认内置工具。按需安装后重启 rpi：
+联网工具由独立的 [tom-package 扩展](https://github.com/tom/tom-package) 提供，
+不属于 CLI 默认内置工具。按需安装后重启 tom：
 
 ```bash
-rpi install rpi-websearch
-rpi install rpi-webfetch
+tom install tom-websearch
+tom install tom-webfetch
 ```
 
 - `websearch` 返回搜索结果的标题、链接和摘要。
@@ -446,15 +446,15 @@ rpi install rpi-webfetch
 
 ### 继承主会话配置的子 agent
 
-安装兼容版本的 `rpi-subagents` 并重启后，可通过 `delegate_task` 委派任务：
+安装兼容版本的 `tom-subagents` 并重启后，可通过 `delegate_task` 委派任务：
 
 ```bash
-rpi install rpi-subagents
+tom install tom-subagents
 ```
 
 子 agent 使用主会话当前有效配置的快照：模型/provider 及其私有凭据绑定、thinking、
 系统提示词、资源、请求选项、启用的工具、项目 cwd 和审批 hook。它不是重新读取默认
-配置启动的 `rpi` 子进程；凭据不会通过插件 JSON 传递。
+配置启动的 `tom` 子进程；凭据不会通过插件 JSON 传递。
 
 子任务使用独立的内存 Session，**不复制或修改父聊天历史**。宿主 API 可进一步缩小
 工具集合，但不能扩大；子工具集中移除 `delegate_task`，并禁止通过别名递归委派。
@@ -468,11 +468,11 @@ runtime actions 接入。完整边界与生命周期见 [子 agent 协议](../ex
 
 ## 7. SDK 集成
 
-只需要嵌入 Agent 时，依赖 `rpi-agent` 和 `rpi-ai`；需要内置工具时再加入 `rpi-tools`；需要会话、压缩、skills 和上下文文件时加入 `rpi-harness`。
+只需要嵌入 Agent 时，依赖 `tom-agent` 和 `tom-ai`；需要内置工具时再加入 `tom-tools`；需要会话、压缩、skills 和上下文文件时加入 `tom-harness`。
 
 ```rust
-use rpi_agent::{Agent, AgentEvent};
-use rpi_ai::providers::faux::faux_provider;
+use tom_agent::{Agent, AgentEvent};
+use tom_ai::providers::faux::faux_provider;
 
 let model = faux_provider().model("echo");
 let mut agent = Agent::builder(model)
@@ -480,7 +480,7 @@ let mut agent = Agent::builder(model)
     .build();
 
 let mut events = agent.subscribe();
-agent.prompt("Hello from rpi").await?;
+agent.prompt("Hello from tom").await?;
 while let Some(event) = events.recv().await {
     if matches!(event, AgentEvent::AgentEnd { .. }) {
         break;
@@ -488,13 +488,13 @@ while let Some(event) = events.recv().await {
 }
 ```
 
-自定义工具实现 `rpi-agent::AgentTool`；Provider 实现 `rpi-ai::Provider`。使用 `faux provider` 和 `InMemoryExecutionEnv` 可以在没有网络、API key 或真实文件系统的情况下测试 Agent loop。
+自定义工具实现 `tom-agent::AgentTool`；Provider 实现 `tom-ai::Provider`。使用 `faux provider` 和 `InMemoryExecutionEnv` 可以在没有网络、API key 或真实文件系统的情况下测试 Agent loop。
 
 ## 8. 故障排查
 
 ### 找不到模型或接口报错
 
-运行 `rpi auth check`，确认 provider、`models.json`、环境变量和 `baseUrl`。使用 `--provider` 和完整的 `provider/model` 避免同名模型歧义。接口错误会保留 provider 返回的诊断文本；先检查 endpoint、认证头和模型 ID。
+运行 `tom auth check`，确认 provider、`models.json`、环境变量和 `baseUrl`。使用 `--provider` 和完整的 `provider/model` 避免同名模型歧义。接口错误会保留 provider 返回的诊断文本；先检查 endpoint、认证头和模型 ID。
 
 ### 扩展加载失败
 
@@ -503,23 +503,23 @@ while let Some(event) = events.recv().await {
 ### 扩展事件处理器没触发或启动被中止
 
 ```bash
-export RPI_EVENT_LOG=1
-rpi            # 记录所有扩展事件处理器调用
-rpi events tail   # 跟踪日志；看 result 是 Continue 还是 Error/Abort/Panic/Timeout
+export TOM_EVENT_LOG=1
+tom            # 记录所有扩展事件处理器调用
+tom events tail   # 跟踪日志；看 result 是 Continue 还是 Error/Abort/Panic/Timeout
 ```
 
-日志默认在 `~/.rpi/logs/events.jsonl`（可用 `RPI_EVENT_LOG_PATH` 覆盖）。如果
+日志默认在 `~/.tom/logs/events.jsonl`（可用 `TOM_EVENT_LOG_PATH` 覆盖）。如果
 `BeforeTuiStart` 阶段有扩展返回 veto（`EVENT_HANDLER_ABORT`），CLI 以退出码 `3`
 中止启动并打印原因。
 
 ### 资源没有出现在欢迎页
 
-确认文件位于 `.rpi`（或兼容的 `.pi`）或全局 `~/.rpi/agent`。使用 `rpi --debug-system-prompt` 查看最终系统提示词、skills 和资源计数；同名资源优先检查 `.rpi` 是否覆盖了 `.pi`。
+确认文件位于 `.tom`（或兼容的 `.pi`）或全局 `~/.tom/agent`。使用 `tom --debug-system-prompt` 查看最终系统提示词、skills 和资源计数；同名资源优先检查 `.tom` 是否覆盖了 `.pi`。
 
 ### 远程模式连不上
 
-确认服务端已用 `rpi --server --port <port>` 启动且 token 正确（或通过
-`RPI_SERVER_TOKEN` 提供）。客户端是纯显示端，不加载任何本地 provider/工具/扩展；
+确认服务端已用 `tom --server --port <port>` 启动且 token 正确（或通过
+`TOM_SERVER_TOKEN` 提供）。客户端是纯显示端，不加载任何本地 provider/工具/扩展；
 会话文件在服务端。
 
 ## 9. 开发、测试和发布
@@ -535,8 +535,8 @@ cargo test --workspace
 发布 crate 时按依赖顺序：
 
 ```text
-rpi-telemetry → rpi-ai → rpi-agent → rpi-tools → rpi-harness →
-rpi-plugin-sdk → rpi-extensions → rpi-tui → rpi-cli
+tom-telemetry → tom-ai → tom-agent → tom-tools → tom-harness →
+tom-plugin-sdk → tom-extensions → tom-tui → tom-cli
 ```
 
 日常贡献无需手动修改版本号。普通改动合并 `main` 并通过 CI 后，由自动化准备
@@ -544,18 +544,18 @@ Release PR；只有合并符合条件的 Release PR 才会发布。发布记录�
 `CHANGELOG.md`，不再新建 `docs/release-vX.Y.Z.md`。完整流程与纯文档不发布的处理方式
 见 [发布流程](../maintaining/releasing.md)。
 
-修改模型可读文档源 `docs/rpi-tool/` 后运行 `sh scripts/sync-embedded-docs.sh` 并提交
+修改模型可读文档源 `docs/tom-tool/` 后运行 `sh scripts/sync-embedded-docs.sh` 并提交
 生成的文档快照。仅更新文档不需要 bump 版本或打 tag。官网仍需单独部署，提交或合并
 文档不等于已经更新线上网站。
 
 ## 10. 文档查询入口
 
-- 在线文档：<https://rpi.laofu.online/docs.html>
-- 源码仓库：<https://github.com/bigfish1913/pi-rust>
-- Rust API：<https://docs.rs/rpi-agent>、<https://docs.rs/rpi-plugin-sdk>
+- 在线文档：<https://tom.laofu.online/docs.html>
+- 源码仓库：<https://github.com/bigfish1913/tom>
+- Rust API：<https://docs.rs/tom-agent>、<https://docs.rs/tom-plugin-sdk>
 
-- Package 与扩展作者指南：<https://rpi.laofu.online/extension-authoring.md>
+- Package 与扩展作者指南：<https://tom.laofu.online/extension-authoring.md>
 - 远程模式：<docs/remote/user-guide.md>
-- Rust 扩展与 agent 调试：`rpi` 内 `docs` 工具的 `debugging` 主题
+- Rust 扩展与 agent 调试：`tom` 内 `docs` 工具的 `debugging` 主题
 
 当在线文档和已安装版本不一致时，以对应版本的 Git tag 和仓库内文档为准。

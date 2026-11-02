@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline real-process session recovery smoke (Python standard library only).
 
-python -B scripts/session-smoke.py --rpi /absolute/path/to/rpi \
+python -B scripts/session-smoke.py --tom /absolute/path/to/tom \
     --diagnostics-dir target/session-smoke-unique [--extension /path/to/plugin]
 
 Never uses user history, installed configuration, real API keys or PATH discovery.
@@ -149,8 +149,8 @@ def environment(root, model):
                LOCALAPPDATA=str(root / "localappdata"), XDG_CONFIG_HOME=str(home / ".config"),
                XDG_CACHE_HOME=str(home / ".cache"), XDG_DATA_HOME=str(home / ".local/share"),
                TEMP=str(root / "tmp"), TMP=str(root / "tmp"), TMPDIR=str(root / "tmp"),
-               RPI_CODING_AGENT_DIR=str(root / "agent"), RPI_OFFLINE="1", NO_COLOR="1",
-               RPI_VOICE_AUTO_TTS="off")
+               TOM_CODING_AGENT_DIR=str(root / "agent"), TOM_OFFLINE="1", NO_COLOR="1",
+               TOM_VOICE_AUTO_TTS="off")
     dump(root / "agent/auth.json", {})
     dump(root / "agent/settings.json", {
         "defaultProvider": "fixture", "defaultModel": "synthetic", "defaultThinkingLevel": "off"})
@@ -429,12 +429,12 @@ def scenario(binary, root, encoding, extensions):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rpi", required=True, type=Path)
+    parser.add_argument("--tom", required=True, type=Path)
     parser.add_argument("--diagnostics-dir", required=True, type=Path)
     parser.add_argument("--extension", action="append", default=[], type=Path)
     parser.add_argument("--encoding", choices=("compact-deltas", "snapshot", "both"), default="both")
     args = parser.parse_args()
-    binary = args.rpi.resolve()
+    binary = args.tom.resolve()
     extensions = [p.resolve() for p in args.extension]
     for path in [binary] + extensions:
         if not path.is_file():
@@ -447,7 +447,7 @@ def main():
     except FileExistsError:
         parser.error(f"refusing to overwrite diagnostics directory: {diagnostics}")
     results = []
-    dump(diagnostics / "inputs.json", {"rpi": str(binary), "extensions": list(map(str, extensions))})
+    dump(diagnostics / "inputs.json", {"tom": str(binary), "extensions": list(map(str, extensions))})
     encodings = ("compact-deltas", "snapshot") if args.encoding == "both" else (args.encoding,)
     for encoding in encodings:
         root = diagnostics / encoding
