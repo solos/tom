@@ -125,6 +125,8 @@ rpi auth logout
 }
 ```
 
+`models` 可以省略（或留空）。此时 rpi 会在启动时以及 `--list-models` 时自动向 provider 拉取模型目录：OpenAI 兼容协议读取 `{baseUrl}/models`，Anthropic Messages 读取 `{baseUrl}/v1/models`。结果缓存在 `~/.rpi/agent/models.discovered.json`，加载 `models.json` 时合并到对应 provider；只有需要固定元数据（上下文窗口、价格、thinking 级别等）的模型才需要手写。显式配置的 `models` 始终优先；`--offline` 跳过网络请求，但仍使用上次的缓存。启动时缓存有效期为 15 分钟（拉取失败也会缓存同样时长，避免每次启动都等待超时），而 `--list-models` 总是重新向端点查询。交互式添加 provider 时，在 model id 一步输入 `auto` 也会写入空列表并交给自动发现。
+
 模型条目还可以配置 `cost`，单价单位为 **美元 / 百万 token**，例如：
 
 ```json

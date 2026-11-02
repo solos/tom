@@ -108,6 +108,12 @@ pub fn models_path() -> Result<PathBuf, ConfigError> {
     Ok(agent_dir()?.join("models.json"))
 }
 
+/// `~/.rpi/agent/models.discovered.json` — models fetched from provider
+/// `/models` endpoints for providers that declare no explicit `models` list.
+pub fn discovered_models_path() -> Result<PathBuf, ConfigError> {
+    Ok(agent_dir()?.join("models.discovered.json"))
+}
+
 /// `~/.rpi/agent/settings.json` (saved default provider/model/thinking + theme).
 pub fn settings_path() -> Result<PathBuf, ConfigError> {
     Ok(agent_dir()?.join("settings.json"))
@@ -341,13 +347,82 @@ pub fn delete_credential(provider_id: &str) -> Result<bool, ConfigError> {
 // ---------------------------------------------------------------------------
 
 /// Load `~/.rpi/models.json`. Missing file ⇒ empty config (no error).
+///
+/// Providers whose `models` list is empty are filled from the discovery cache
+/// (see [`read_discovered_models`]); a provider that declares any model is
+/// always used verbatim.
 pub fn load_models_config() -> Result<ModelsConfig, ConfigError> {
+    let mut cfg = load_models_config_raw()?;
+    merge_discovered_models(&mut cfg);
+    Ok(cfg)
+}
+
+/// Load `~/.rpi/models.json` without merging the discovery cache. Use this
+/// before rewriting the file so fetched models are never persisted as if the
+/// user had configured them.
+pub fn load_models_config_raw() -> Result<ModelsConfig, ConfigError> {
     let path = models_path()?;
     match read_text_with_fallback(path, None)? {
         Some((path, text)) => {
             parse_models_json(&text).map_err(|source| ConfigError::Json { path, source })
         }
         None => Ok(ModelsConfig::default()),
+    }
+}
+
+/// Models discovered from a provider's `/models` endpoint, keyed by provider id.
+#[derive(serde::Serialize, serde::Deserialize, Default, Debug, Clone)]
+pub struct DiscoveredModels {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub providers: BTreeMap<String, DiscoveredProvider>,
+}
+
+/// One provider's discovery result.
+#[derive(serde::Serialize, serde::Deserialize, Default, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoveredProvider {
+    /// Unix seconds when the list was fetched (informational).
+    #[serde(default)]
+    pub fetched_at: i64,
+    #[serde(default)]
+    pub models: Vec<ModelDefinition>,
+}
+
+/// Read the discovery cache. Missing or malformed files read as empty: the
+/// cache is an optimization, never a source of startup errors.
+pub fn read_discovered_models() -> DiscoveredModels {
+    let Ok(path) = discovered_models_path() else {
+        return DiscoveredModels::default();
+    };
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+/// Persist the discovery cache atomically.
+pub fn write_discovered_models(models: &DiscoveredModels) -> Result<(), ConfigError> {
+    let path = discovered_models_path()?;
+    ensure_dir(&agent_dir()?)?;
+    let text = serde_json::to_string_pretty(models).map_err(|source| ConfigError::Json {
+        path: path.clone(),
+        source,
+    })?;
+    atomic_write(&path, text.as_bytes())
+}
+
+/// Fill providers that declare no models from the discovery cache.
+fn merge_discovered_models(cfg: &mut ModelsConfig) {
+    let discovered = read_discovered_models();
+    if discovered.providers.is_empty() {
+        return;
+    }
+    for (id, provider) in cfg.providers.iter_mut() {
+        if provider.models.is_empty() {
+            if let Some(entry) = discovered.providers.get(id) {
+                provider.models = entry.models.clone();
+            }
+        }
     }
 }
 
@@ -862,6 +937,193 @@ mod tests {
         let _cfg = TempConfig::new();
         let c = load_models_config().unwrap();
         assert!(c.providers.is_empty());
+    }
+
+    fn discovered_model(id: &str) -> ModelDefinition {
+        ModelDefinition {
+            id: id.to_string(),
+            name: None,
+            base_url: None,
+            reasoning: None,
+            thinking_level_map: None,
+            context_window: None,
+            max_tokens: None,
+            cost: None,
+            input: None,
+            headers: None,
+            compat: None,
+        }
+    }
+
+    #[test]
+    fn discovered_models_fill_only_providers_without_an_explicit_list() {
+        let _cfg = TempConfig::new();
+        std::fs::write(
+            models_path().unwrap(),
+            r#"{"providers":{
+                "auto":{"api":"openai-completions","baseUrl":"https://gw.test/v1"},
+                "manual":{"api":"openai-completions","models":[{"id":"m1"}]}
+            }}"#,
+        )
+        .unwrap();
+
+        let mut discovered = DiscoveredModels::default();
+        discovered.providers.insert(
+            "auto".into(),
+            DiscoveredProvider {
+                fetched_at: 1,
+                models: vec![discovered_model("a1")],
+            },
+        );
+        // An explicit provider must never be overridden by the cache.
+        discovered.providers.insert(
+            "manual".into(),
+            DiscoveredProvider {
+                fetched_at: 1,
+                models: vec![discovered_model("polluted")],
+            },
+        );
+        write_discovered_models(&discovered).unwrap();
+
+        let cfg = load_models_config().unwrap();
+        assert_eq!(
+            cfg.providers["auto"]
+                .models
+                .iter()
+                .map(|m| m.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a1"]
+        );
+        assert_eq!(
+            cfg.providers["manual"]
+                .models
+                .iter()
+                .map(|m| m.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["m1"]
+        );
+
+        // The raw loader stays verbatim so rewrites cannot persist discovered ids.
+        let raw = load_models_config_raw().unwrap();
+        assert!(raw.providers["auto"].models.is_empty());
+        save_models_config(&raw).unwrap();
+        let text = std::fs::read_to_string(models_path().unwrap()).unwrap();
+        assert!(!text.contains("a1"));
+    }
+
+    #[tokio::test]
+    async fn auto_discovery_populates_empty_providers_from_the_endpoint() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let _cfg = TempConfig::new();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut bytes = Vec::new();
+            loop {
+                let mut chunk = [0u8; 1024];
+                let count = socket.read(&mut chunk).await.unwrap();
+                if count == 0 {
+                    break;
+                }
+                bytes.extend_from_slice(&chunk[..count]);
+                if bytes.windows(4).any(|window| window == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            let body = r#"{"data":[{"id":"auto-1"},{"id":"auto-2"}]}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            socket.write_all(response.as_bytes()).await.unwrap();
+            socket.flush().await.unwrap();
+        });
+
+        std::fs::write(
+            models_path().unwrap(),
+            serde_json::json!({"providers": {"gateway": {
+                "api": "openai-completions",
+                "baseUrl": format!("http://{address}/v1"),
+                "apiKey": "test-only"
+            }}})
+            .to_string(),
+        )
+        .unwrap();
+
+        let warnings = crate::model_discovery::auto_discover(false, &[], true).await;
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        server.await.unwrap();
+
+        let cfg = load_models_config().unwrap();
+        let ids: Vec<_> = cfg.providers["gateway"]
+            .models
+            .iter()
+            .map(|model| model.id.as_str())
+            .collect();
+        assert_eq!(ids, vec!["auto-1", "auto-2"]);
+        assert!(read_discovered_models().providers.contains_key("gateway"));
+
+        // A second startup within the refresh window must not touch the network
+        // (the one-shot server is gone, so a request would warn).
+        let cached = crate::model_discovery::auto_discover(false, &[], false).await;
+        assert!(cached.is_empty(), "unexpected warnings: {cached:?}");
+
+        // `--offline` must not touch the network; the cache still applies.
+        let offline = crate::model_discovery::auto_discover(true, &[], true).await;
+        assert!(offline.is_empty());
+        assert_eq!(
+            load_models_config().unwrap().providers["gateway"]
+                .models
+                .len(),
+            2
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_discovery_keeps_the_last_known_catalog() {
+        let _cfg = TempConfig::new();
+        std::fs::write(
+            models_path().unwrap(),
+            r#"{"providers":{"gateway":{
+                "api":"openai-completions",
+                "baseUrl":"http://127.0.0.1:1/v1",
+                "apiKey":"test-only"}}}"#,
+        )
+        .unwrap();
+
+        let mut discovered = DiscoveredModels::default();
+        discovered.providers.insert(
+            "gateway".into(),
+            DiscoveredProvider {
+                fetched_at: 1,
+                models: vec![discovered_model("cached-1")],
+            },
+        );
+        write_discovered_models(&discovered).unwrap();
+
+        let warnings = crate::model_discovery::auto_discover(false, &[], true).await;
+        assert!(
+            warnings.iter().any(|warning| warning.contains("gateway")),
+            "expected a discovery warning: {warnings:?}"
+        );
+
+        // A failed refresh must not wipe the last catalog the provider served.
+        let cfg = load_models_config().unwrap();
+        assert_eq!(
+            cfg.providers["gateway"]
+                .models
+                .iter()
+                .map(|model| model.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["cached-1"]
+        );
+        assert_eq!(
+            read_discovered_models().providers["gateway"].models[0].id,
+            "cached-1"
+        );
     }
 
     #[test]

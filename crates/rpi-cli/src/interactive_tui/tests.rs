@@ -2895,6 +2895,29 @@ fn provider_form_saves_provider_to_models_json() {
 }
 
 #[test]
+fn provider_form_can_defer_models_to_auto_discovery() {
+    with_isolated_config_dir(|| {
+        let form = ProviderFormState {
+            step: ProviderFormStep::ModelId,
+            id: "gateway".into(),
+            api: "openai-completions".into(),
+            base_url: "https://gateway.test/v1".into(),
+            api_key: "$GATEWAY_KEY".into(),
+            model_id: String::new(),
+            model_name: String::new(),
+        };
+        let note = save_provider_from_form(&form).unwrap();
+        assert!(note.contains("auto"), "{note}");
+
+        // No placeholder model is written: the empty list invites discovery.
+        let raw = crate::config::load_models_config_raw().unwrap();
+        let provider = raw.providers.get("gateway").expect("provider written");
+        assert!(provider.models.is_empty());
+        assert_eq!(provider.api.as_deref(), Some("openai-completions"));
+    });
+}
+
+#[test]
 fn provider_url_validation_requires_http_scheme() {
     assert!(is_valid_provider_url("https://api.example.com/v1"));
     assert!(is_valid_provider_url("http://localhost:8080"));

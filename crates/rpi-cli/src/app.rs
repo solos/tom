@@ -310,6 +310,13 @@ async fn run_inner() -> i32 {
             return EXIT_RUNTIME;
         }
     };
+    // Fill providers that declare no `models` list from their own catalog
+    // endpoint. Best-effort: warnings only, and the previous cache still
+    // applies when a refresh fails or `--offline` is set.
+    let manifests = crate::provider::manifests_from_session(&prepared.extension_session);
+    for warning in crate::model_discovery::auto_discover(parsed.offline, &manifests, false).await {
+        eprintln!("warning: {warning}");
+    }
     let resolved = match resolve_with_extensions(
         &parsed,
         &cwd,
@@ -766,6 +773,10 @@ async fn list_models(search: &str, args: &Args, cwd: &Path) -> i32 {
         }
     };
     let manifests = crate::provider::manifests_from_session(&prepared.extension_session);
+    // `--list-models` is an explicit catalog query: bypass the refresh window.
+    for warning in crate::model_discovery::auto_discover(args.offline, &manifests, true).await {
+        eprintln!("warning: {warning}");
+    }
     let catalog = match crate::provider::catalog_with_diagnostics(&manifests) {
         Ok((models, warnings)) => {
             for warning in warnings {

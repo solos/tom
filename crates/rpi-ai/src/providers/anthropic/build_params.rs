@@ -1598,7 +1598,14 @@ pub fn adjust_max_tokens_for_thinking(
     reasoning_level: ThinkingLevel,
     custom_budgets: Option<&crate::types::ThinkingBudgets>,
 ) -> (u64, u64) {
-    let model_max_tokens = model.max_tokens;
+    // `0` means the model declares no output limit (for example a model
+    // discovered from an endpoint that publishes no metadata). Treat it as
+    // unknown instead of as a literal cap of zero.
+    let model_max_tokens = if model.max_tokens == 0 {
+        FALLBACK_MAX_TOKENS
+    } else {
+        model.max_tokens
+    };
     let thinking_budget = thinking_budget_for_level(model, reasoning_level, custom_budgets);
     let max_tokens = match base_max_tokens {
         None => model_max_tokens,
@@ -1688,6 +1695,12 @@ pub fn estimate_context_tokens(messages: &[Message], system_prompt: Option<&str>
     }
     (chars + 3) / 4
 }
+
+/// Anthropic requires `max_tokens` on every request. A model with no declared
+/// output limit (0, e.g. discovered from an endpoint that publishes none) would
+/// otherwise clamp to 1 and truncate every answer; 4096 is accepted by all
+/// Messages models.
+const FALLBACK_MAX_TOKENS: u64 = 4096;
 
 fn clamp_max_tokens_to_context_with_tokens(model: &Model, tokens: u64, max_tokens: u64) -> u64 {
     const CONTEXT_SAFETY_TOKENS: u64 = 4096;
@@ -1886,8 +1899,13 @@ fn build_params_internal(
     let convert_messages_ns = elapsed_ns(phase_started);
 
     // max_tokens: opts.max_tokens wins; else model.max_tokens. Thinking may
-    // inflate this (handled below for budget-based models).
-    let base_max_tokens = opts.max_tokens.unwrap_or(model.max_tokens);
+    // inflate this (handled below for budget-based models). A declared `0`
+    // means "unknown", and the wire field is mandatory, so substitute a safe
+    // default rather than clamping down to 1.
+    let base_max_tokens = match opts.max_tokens.unwrap_or(model.max_tokens) {
+        0 => FALLBACK_MAX_TOKENS,
+        value => value,
+    };
     let context_tokens_started = diagnostics_enabled.then(Instant::now);
     let context_tokens = (model.context_window != 0)
         .then(|| estimate_context_tokens(&ctx.messages, ctx.system_prompt.as_deref()));
@@ -2601,6 +2619,23 @@ mod tests {
         let (max, budget) = adjust_max_tokens_for_thinking(None, &model, ThinkingLevel::High, None);
         assert_eq!(max, 8192);
         assert!(budget < 16384);
+    }
+
+    #[test]
+    fn undeclared_max_tokens_uses_a_usable_fallback() {
+        // A discovered Anthropic-compatible model has no metadata, so both
+        // limits are 0. `max_tokens` is mandatory on the wire; sending the
+        // clamp floor of 1 would truncate every answer.
+        let mut model = model_with_compat(Default::default());
+        model.max_tokens = 0;
+        model.context_window = 0;
+        let ctx = crate::types::Context::new(vec![UserMessage::new("hi", 0).into()]);
+        let built = build_params(&model, &ctx, false, &SimpleStreamOptions::default());
+        assert_eq!(built.request.max_tokens, FALLBACK_MAX_TOKENS);
+
+        // The thinking path shares the same fallback ceiling.
+        let (max, _) = adjust_max_tokens_for_thinking(None, &model, ThinkingLevel::High, None);
+        assert_eq!(max, FALLBACK_MAX_TOKENS);
     }
 
     #[test]

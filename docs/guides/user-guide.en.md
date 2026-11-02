@@ -108,6 +108,8 @@ The default model catalog is `~/.rpi/agent/models.json`. Set `RPI_CODING_AGENT_D
 }
 ```
 
+`models` may be omitted (or left empty). rpi then discovers the catalog from the provider itself at startup and for `--list-models`: OpenAI-compatible protocols read `{baseUrl}/models`, and Anthropic Messages reads `{baseUrl}/v1/models`. Results are cached in `~/.rpi/agent/models.discovered.json` and merged when `models.json` is loaded, so only models whose metadata you want to pin need a manual entry. An explicit `models` list always wins; `--offline` skips the network request but still uses the last cache. Startup reuses a cached list for 15 minutes (failed attempts are cached for the same window), while `--list-models` always queries the endpoint again. In the interactive add-provider form, entering `auto` at the model-id step writes an empty list and defers to discovery.
+
 Select a model with either a provider/model pattern or separate flags:
 
 ```bash

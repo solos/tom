@@ -1311,16 +1311,20 @@ pub(super) fn stored_credential_items() -> Vec<SelectItem> {
 /// The providers that can be removed: everything defined in `models.json`
 /// (built-ins are compiled in and cannot be deleted).
 pub(super) fn removable_provider_items() -> Vec<SelectItem> {
-    let cfg = crate::config::load_models_config().unwrap_or_default();
+    // Raw config: the description states what the file holds, not what discovery
+    // merged into the live catalog.
+    let cfg = crate::config::load_models_config_raw().unwrap_or_default();
     cfg.providers
         .iter()
         .map(|(id, provider)| {
             let label = provider_display_name(id);
+            let models = if provider.models.is_empty() {
+                "auto-discovered models".to_string()
+            } else {
+                format!("{} model(s)", provider.models.len())
+            };
             SelectItem::new(id, &label)
-                .with_description(&format!(
-                    "{} model(s) · will be removed from models.json",
-                    provider.models.len()
-                ))
+                .with_description(&format!("{models} · will be removed from models.json"))
                 .with_search_text(&format!("{label} {id} remove delete"))
         })
         .collect()
@@ -1635,8 +1639,8 @@ fn provider_step_prompt(step: &ProviderFormStep) -> (&'static str, &'static str,
         ),
         ProviderFormStep::ModelId => (
             "Add provider · step 5/6",
-            "Model id — at least one.",
-            "my-model",
+            "Model id — one id, or \"auto\" to fetch the endpoint's catalog.",
+            "my-model (or auto)",
         ),
         ProviderFormStep::ModelName => (
             "Add provider · step 6/6",
@@ -1706,6 +1710,18 @@ fn handle_provider_form_input(
             form.step = ProviderFormStep::ModelId;
         }
         ProviderFormStep::ModelId => {
+            if text.eq_ignore_ascii_case("auto") {
+                // No explicit model: discovery fills the catalog on the next
+                // start, so the optional name step does not apply.
+                form.model_id.clear();
+                form.model_name.clear();
+                match save_provider_from_form(&form) {
+                    Ok(note) => add_note_message(&state.chat_container, &note),
+                    Err(error) => add_error_message(&state.chat_container, &error),
+                }
+                finish_provider_form(state, editor_container, editor, tui);
+                return;
+            }
             form.model_id = text.to_string();
             form.step = ProviderFormStep::ModelName;
         }
@@ -1755,7 +1771,7 @@ fn cancel_provider_form(
 
 /// Whether a provider id is already taken in `models.json`.
 pub(super) fn provider_id_exists(id: &str) -> bool {
-    crate::config::load_models_config()
+    crate::config::load_models_config_raw()
         .map(|cfg| cfg.providers.contains_key(id))
         .unwrap_or(false)
 }
@@ -1769,7 +1785,7 @@ pub(super) fn is_valid_provider_url(input: &str) -> bool {
 /// Remove a configured provider from `models.json` (built-ins cannot be
 /// removed). Clears a saved default that pointed at the removed provider.
 pub(super) fn remove_provider(input: &str) -> Result<String, String> {
-    let mut cfg = crate::config::load_models_config().map_err(|error| error.to_string())?;
+    let mut cfg = crate::config::load_models_config_raw().map_err(|error| error.to_string())?;
     let id = input.trim();
     if cfg.providers.shift_remove(id).is_none() {
         return Err(format!(
@@ -1789,18 +1805,16 @@ pub(super) fn remove_provider(input: &str) -> Result<String, String> {
     Ok(format!("Removed models.json configuration for provider \"{id}\" — restart rpi to apply. Installed provider packages remain available; use rpi package unlink to remove a package."))
 }
 
-/// Write the completed form into `models.json` as a new provider with one
-/// model.
+/// Write the completed form into `models.json` as a new provider. A form with an
+/// empty model id writes an empty `models` list, which enables auto-discovery.
 pub(super) fn save_provider_from_form(form: &ProviderFormState) -> Result<String, String> {
-    let mut cfg = crate::config::load_models_config().map_err(|error| error.to_string())?;
-    let provider = crate::config::ProviderConfig {
-        name: None,
-        base_url: Some(form.base_url.clone()),
-        api_key: Some(form.api_key.clone()),
-        api: Some(form.api.clone()),
-        headers: None,
-        auth_header: None,
-        models: vec![crate::config::ModelDefinition {
+    let mut cfg = crate::config::load_models_config_raw().map_err(|error| error.to_string())?;
+    // An empty id means the user chose automatic discovery: persist an empty
+    // `models` list instead of the placeholder the form collected.
+    let models = if form.model_id.is_empty() {
+        Vec::new()
+    } else {
+        vec![crate::config::ModelDefinition {
             id: form.model_id.clone(),
             name: if form.model_name.is_empty() {
                 None
@@ -1816,13 +1830,27 @@ pub(super) fn save_provider_from_form(form: &ProviderFormState) -> Result<String
             input: None,
             headers: None,
             compat: None,
-        }],
+        }]
+    };
+    let provider = crate::config::ProviderConfig {
+        name: None,
+        base_url: Some(form.base_url.clone()),
+        api_key: Some(form.api_key.clone()),
+        api: Some(form.api.clone()),
+        headers: None,
+        auth_header: None,
+        models,
+    };
+    let summary = if form.model_id.is_empty() {
+        "auto-discovered models".to_string()
+    } else {
+        format!("{} model", form.model_id)
     };
     cfg.providers.insert(form.id.clone(), provider);
     crate::config::save_models_config(&cfg).map_err(|error| error.to_string())?;
     Ok(format!(
-        "Added provider \"{}\" ({} · {} model) — restart rpi to use it.",
-        form.id, form.api, form.model_id
+        "Added provider \"{}\" ({} · {}) — restart rpi to use it.",
+        form.id, form.api, summary
     ))
 }
 

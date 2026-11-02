@@ -11,7 +11,20 @@ from; the matching [GitHub Release](../../releases) carries the same notes.
 
 ## [Unreleased]
 
+### Added
+
+- *(cli)* discover model catalogs for `models.json` providers that omit `models`:
+  OpenAI-compatible providers are read from `{baseUrl}/models` and Anthropic
+  Messages from `{baseUrl}/v1/models`, then cached in
+  `~/.rpi/agent/models.discovered.json` (15-minute refresh window;
+  `--list-models` always refreshes and `--offline` uses the cache). The
+  interactive add-provider form accepts `auto` at the model-id step
+
 ### Fixed
+
+- *(ai)* send a usable `max_tokens` for Anthropic models that declare none
+  (previously clamped to 1, truncating every answer), so models discovered
+  without metadata produce complete responses
 
 - *(cli)* keep fullscreen mouse-selection copies on Linux: the arboard clipboard
   handle now lives for the whole process instead of being dropped right after
