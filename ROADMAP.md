@@ -8,10 +8,10 @@ Current release: **0.3.0**. Install with `cargo install tom-cli`.
 
 ## Where the project is now
 
-`tom` is a Rust-native, library-first coding-agent runtime: nine published
+`tom` is a Rust-native, library-first coding-agent runtime: ten published
 crates (`tom-telemetry` → `tom-ai` → `tom-agent` → `tom-tools` →
-`tom-harness` → `tom-cli`, plus `tom-tui`, `tom-plugin-sdk` and
-`tom-extensions`) and a terminal CLI built on them.
+`tom-harness` → `tom-cli`, plus `tom-tui`, `tom-plugin-sdk`,
+`tom-extensions` and `tom-mcp`) and a terminal CLI built on them.
 
 What is solid today:
 
@@ -19,6 +19,9 @@ What is solid today:
   a faux provider for offline tests.
 - Anthropic Messages and OpenAI-compatible providers, plus custom gateways via
   `models.json`.
+- A Model Context Protocol client (`tom-mcp`): stdio and streamable-HTTP
+  servers, tool discovery, and automatic `mcp__<server>__<tool>` injection, so
+  the existing MCP tool ecosystem is usable without a plugin.
 - Durable JSONL sessions with branching, compaction and crash recovery.
 - A stable `#[repr(C)]` plugin ABI with a dynamic loader, lifecycle events and
   veto support.
@@ -42,8 +45,8 @@ winget) follow from the same release artifacts.
   usable without the workspace README.
 - A task-oriented tutorial that goes from `cargo install tom-cli` to a working
   custom tool, in one page.
-- Keep `docs/native-pi-missing-features.md` current: it is the honest answer to
-  "is this really at parity?" and it is more useful than a compatibility claim.
+- Keep the parity gap list current. The honest answer to "is this really at
+  parity?" is more useful than a compatibility claim.
 
 ### 3. Provider breadth
 

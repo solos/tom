@@ -13,6 +13,8 @@
 | 创建 Agent、复用工具与嵌入 SDK | [项目结构](agent/project-structure.md) |
 | 消息、流式响应与工具执行 | [Agent Loop 链路](agent/loop-walkthrough.md) |
 | 长会话与上下文压缩 | [上下文压缩](agent/context-compaction.md) |
+| MCP 服务器（工具注入） | [MCP 服务器](mcp/README.md) |
+| RPC 命令集与 pi 兼容性 | [pi 兼容 RPC 命令](rpc-pi-parity.md) |
 | Rust 动态库扩展与 ABI | [扩展开发](extensions/authoring.md) |
 | 启动、会话与关闭事件 | [扩展生命周期](extensions/lifecycle.md) |
 | 子 agent 配置继承、权限与生命周期 | [宿主管理的子 agent](extensions/subagents.md) |
