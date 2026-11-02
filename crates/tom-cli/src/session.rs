@@ -584,6 +584,30 @@ pub async fn build_prepared(
     // the harness lifetime via the returned session guard. `--no-extensions`
     // skips discovery entirely (no dirs scanned, no plugins loaded).
     merge_extension_tools(&mut tools, &extension_session, args, &tool_context);
+
+    // ---- MCP servers ----
+    // Loaded last so a same-named extension tool cannot silently shadow an MCP
+    // tool; the tool policy is applied inside the merge, and the session guard
+    // is kept alive for the harness lifetime (dropping it would kill every
+    // stdio child mid-session). `--no-extensions` also disables MCP, because
+    // both are "external tools" from the user's point of view.
+    let mcp_session = if args.no_extensions {
+        None
+    } else {
+        crate::mcp::load_for_session(cwd, project_trusted).await
+    };
+    if let Some(mcp) = &mcp_session {
+        if args.verbose {
+            for line in mcp.summary_lines() {
+                eprintln!("mcp: {line}");
+            }
+        }
+        for failure in mcp.failures() {
+            eprintln!("warning: mcp: {failure}");
+        }
+        merge_mcp_tools(&mut tools, mcp, args);
+    }
+
     let active = filter_active_tool_names(active_tool_names(&tools, args), args);
 
     // ---- Session storage ----
@@ -1097,6 +1121,7 @@ pub async fn build_prepared(
     reload_args.session_dir = Some(session_dir);
     let reload_context = ReloadContext {
         extension_session: extension_session_cell,
+        mcp: mcp_session.map(Arc::new),
         action_bridge: Arc::new(Mutex::new(Some(Arc::clone(&action_bridge)))),
         tool_context,
         file_io,
@@ -1225,6 +1250,12 @@ pub struct ReloadContext {
     pub file_io: Arc<tom_tools::file_io::FileIORouter>,
     /// The live extension-session cell (swapped on reload).
     pub extension_session: ExtensionSessionCell,
+    /// Live MCP server connections. Held here only to keep the child processes
+    /// alive for the harness lifetime: dropping this kills every stdio server,
+    /// which would make every MCP tool fail mid-session. Reconnecting on
+    /// `/reload` is deliberately not attempted — server state is not the
+    /// extension registry's to rebuild.
+    pub mcp: Option<Arc<crate::mcp_session::McpSession>>,
     /// The session's plugin-tool context (`cwd` + session id), reused — not
     /// rebuilt — on reload so the rebuilt adapters keep serving the SAME
     /// session. A reload that made a fresh context would leave every plugin
@@ -2220,6 +2251,26 @@ fn merge_extension_tools(
             .with_context(tool_context.clone());
         let harness_tool = HarnessTool::new(Arc::new(adapter));
         match tools.iter_mut().find(|t| t.tool.schema().name == *name) {
+            Some(slot) => *slot = harness_tool,
+            None => tools.push(harness_tool),
+        }
+    }
+}
+
+/// Merge MCP tools into the tool set. Same-name collision replaces, matching
+/// the extension-merge rule, and the CLI tool policy still applies.
+fn merge_mcp_tools(
+    tools: &mut Vec<HarnessTool>,
+    session: &crate::mcp_session::McpSession,
+    args: &Args,
+) {
+    for tool in session.tools() {
+        let name = tool.schema().name.clone();
+        if !tool_name_allowed(&name, args) {
+            continue;
+        }
+        let harness_tool = HarnessTool::new(tool);
+        match tools.iter_mut().find(|t| t.tool.schema().name == name) {
             Some(slot) => *slot = harness_tool,
             None => tools.push(harness_tool),
         }

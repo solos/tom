@@ -124,6 +124,11 @@ pub fn trust_path() -> Result<PathBuf, ConfigError> {
     Ok(agent_dir()?.join("trust.json"))
 }
 
+/// `~/.tom/agent/mcp.json` — user-level MCP server definitions.
+pub fn mcp_path() -> Result<PathBuf, ConfigError> {
+    Ok(agent_dir()?.join("mcp.json"))
+}
+
 fn read_text_with_fallback(
     primary: PathBuf,
     fallback: Option<PathBuf>,

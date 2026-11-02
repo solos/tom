@@ -28,6 +28,7 @@ tom-harness = { workspace = true }
 tom-tui = { workspace = true }
 tom-plugin-sdk = { workspace = true, features = ["binary"] }
 tom-extensions = { workspace = true }
+tom-mcp = { workspace = true }
 tokio = { workspace = true, features = ["signal", "io-std", "net"] }
 tokio-util = { workspace = true }
 async-trait = { workspace = true }

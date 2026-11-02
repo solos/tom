@@ -155,6 +155,7 @@ async fn run_inner() -> i32 {
         Some("install") => return crate::install::run_async(&argv[1..]).await,
         Some("uninstall") => return crate::install::uninstall(&argv[1..]),
         Some("package") => return crate::packages::run(&argv[1..]),
+        Some("mcp") => return crate::mcp::run(&argv[1..]).await,
         // These historical aliases are intentionally rejected instead of
         // falling through to the prompt path.
         Some(removed @ ("pi-package" | "pi-update" | "install-pi" | "uninstall-pi")) => {

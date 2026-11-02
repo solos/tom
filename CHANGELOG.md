@@ -13,6 +13,13 @@ from; the matching [GitHub Release](../../releases) carries the same notes.
 
 ### Added
 
+- *(mcp)* new `tom-mcp` crate: a Model Context Protocol client with stdio and
+  streamable-HTTP transports, tool discovery, and `mcp__<server>__<tool>`
+  adapters that plug into the agent as ordinary tools. Configured through
+  `~/.tom/agent/mcp.json` and (in a trusted project) `.tom/mcp.json`; managed
+  with `tom mcp list|status|add|remove`. A project entry without its own
+  transport overrides only `enabled`/`description`/`timeout` of the inherited
+  user-level server, so one server can be switched off per project.
 - *(cli)* discover model catalogs for `models.json` providers that omit `models`:
   OpenAI-compatible providers are read from `{baseUrl}/models` and Anthropic
   Messages from `{baseUrl}/v1/models`, then cached in

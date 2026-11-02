@@ -1,0 +1,40 @@
+[package]
+name = "tom-mcp"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/tom-mcp"
+description = "Minimal Model Context Protocol client for tom: stdio + streamable HTTP transports, tool discovery, and model-facing tool injection"
+readme = "README.md"
+keywords = ["agent", "llm", "mcp", "tools"]
+categories = [
+    "api-bindings",
+    "asynchronous",
+    "development-tools",
+    "artificial-intelligence",
+]
+
+[dependencies]
+tom-agent = { workspace = true }
+tom-ai = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+reqwest = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+tempfile = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

@@ -208,15 +208,15 @@ provider — the full version is in [`examples/minimal/src/main.rs`](examples/mi
 
 ## Crates
 
-Ten workspace crates, one shared version. Dependency direction is one-way
+Eleven workspace crates, one shared version. Dependency direction is one-way
 and enforced in review:
 
 ```
 tom-telemetry → tom-ai → tom-agent → tom-tools → tom-harness
-                    ↘ tom-runtime
+                    ↘ tom-runtime        ↘ tom-mcp
 ```
 
-Five crates sit outside that chain:
+Six crates sit outside that chain:
 
 - `tom-tui` depends on no other `tom-*` crate.
 - `tom-runtime` depends on `tom-ai` and provides embeddable model catalogs,
@@ -228,8 +228,12 @@ Five crates sit outside that chain:
   the ABI. That edge is names-only — nothing is linked or called.
 - `tom-extensions` is `tom-plugin-sdk` plus `tom-ai`/`tom-agent`, since it hosts
   plugins that run tools.
+- `tom-mcp` depends on `tom-agent`/`tom-ai` and provides the Model Context
+  Protocol client: stdio + streamable-HTTP transports and model-facing tool
+  adapters. It never reaches into the agent loop, so the CLI, an embedded SDK
+  user and tests all drive it the same way.
 - `tom-cli` depends on all ten of the others, which is how the `tom` binary
-gets the TUI, the harness and the plugin loader at once.
+gets the TUI, the harness, the plugin loader and the MCP client at once.
 
 | Crate | What it is |
 | ----- | ---------- |
@@ -243,6 +247,7 @@ gets the TUI, the harness and the plugin loader at once.
 | [`tom-cli`](https://crates.io/crates/tom-cli) | The `tom` binary: TUI, one-shot and JSON modes, config, plugin loading |
 | [`tom-plugin-sdk`](https://crates.io/crates/tom-plugin-sdk) | The stable `#[repr(C)]` ABI contract for plugins. No `tom-*` deps; only `serde_json`, behind a default `json` feature that can be turned off |
 | [`tom-extensions`](https://crates.io/crates/tom-extensions) | Host-side plugin loader and the async-across-ABI tool bridge |
+| [`tom-mcp`](crates/tom-mcp) | Model Context Protocol client: stdio + streamable-HTTP transports, tool discovery, and `mcp__<server>__<tool>` adapters |
 
 Every crate has its own README and docs.rs page. The `crates/tom-*`
 directories and the published crate names use the same `tom-` prefix.
@@ -326,6 +331,25 @@ silently loads the machine's global plugins.
 Method, raw per-run numbers, and what is *not* measured (LLM latency, tool-loop
 throughput, long sessions, TUI frame cost) are in
 [`docs/performance/benchmark-vs-pi.md`](docs/performance/benchmark-vs-pi.md).
+
+## MCP servers
+
+`tom` is an MCP client, so the tool ecosystem that already exists for other
+agents works here too. Configure servers once and their tools become callable as
+`mcp__<server>__<tool>`:
+
+```bash
+tom mcp add filesystem --command npx --arg -y \
+  --arg @modelcontextprotocol/server-filesystem --arg .
+tom mcp list
+```
+
+Both stdio and streamable HTTP servers are supported. User servers live in
+`~/.tom/agent/mcp.json`, project servers in `.tom/mcp.json` (read only in a
+trusted project). See [`docs/mcp/README.md`](docs/mcp/README.md).
+
+`tom` is a client, not a host: resources, prompts, sampling and elicitation are
+out of scope.
 
 ## Plugins
 

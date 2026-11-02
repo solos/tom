@@ -11,6 +11,7 @@ members = [
     "crates/tom-tui",
     "crates/tom-plugin-sdk",
     "crates/tom-extensions",
+    "crates/tom-mcp",
     "examples/minimal",
     "examples/tools",
     "examples/tui",
@@ -84,6 +85,8 @@ tom-tui = { path = "crates/tom-tui", version = "0.16.0" }
 
 tom-plugin-sdk = { path = "crates/tom-plugin-sdk", version = "0.16.0" }
 tom-extensions = { path = "crates/tom-extensions", version = "0.16.0" }
+
+tom-mcp = { path = "crates/tom-mcp", version = "0.16.0" }
 
 [profile.release]
 lto = "thin"

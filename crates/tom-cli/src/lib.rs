@@ -49,6 +49,8 @@ pub mod fs_watch;
 pub mod install;
 pub mod interactive_tui;
 pub mod key_trace;
+pub mod mcp;
+pub mod mcp_session;
 pub mod model_discovery;
 pub mod model_registry;
 pub mod modes;
