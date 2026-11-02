@@ -85,7 +85,7 @@ That leaves this as the one list where a **human submission works today**. The
 entry, ready to paste into the `### Agents` section (`## Development`):
 
 ```markdown
-- [tom](https://github.com/bigfish1913/tom) - Rust-native coding-agent runtime and terminal CLI.
+- [tom](https://github.com/solos/tom) - Rust-native coding-agent runtime and terminal CLI.
 ```
 
 PR title: `Add tom`. Use their PR template. Their `### Agents` list is ordered by
@@ -122,7 +122,7 @@ unlike awesome-cli-apps). Alphabetically tom belongs between `resterm` and
 `runme` in `Development`:
 
 ```markdown
-- [tom](https://github.com/bigfish1913/tom) Rust-native coding-agent runtime with an interactive terminal UI
+- [tom](https://github.com/solos/tom) Rust-native coding-agent runtime with an interactive terminal UI
 ```
 
 Do not submit before **2027-02-12**.
@@ -189,16 +189,16 @@ Reproducible, and safe to re-run:
 
 ```bash
 # stars, description, topics, repo age
-gh api repos/bigfish1913/tom \
+gh api repos/solos/tom \
   -q '"stars=\(.stargazers_count) created=\(.created_at)"'
 
 # crates.io downloads (a User-Agent is mandatory; without it crates.io 403s)
-curl -s -x "$PROXY" -A 'tom-promo/1.0 (github.com/bigfish1913/tom)' \
+curl -s -x "$PROXY" -A 'tom-promo/1.0 (github.com/solos/tom)' \
   https://crates.io/api/v1/crates/tom-agent | python -c \
   "import sys,json;print(json.load(sys.stdin)['crate']['downloads'])"
 
 # valid crates.io category slugs
-curl -s -x "$PROXY" -A 'tom-promo/1.0 (github.com/bigfish1913/tom)' \
+curl -s -x "$PROXY" -A 'tom-promo/1.0 (github.com/solos/tom)' \
   'https://crates.io/api/v1/categories?page=1&per_page=100'
 
 # is a list still merging?

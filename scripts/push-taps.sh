@@ -59,10 +59,10 @@ case "$CHANNEL" in
   *) die "unknown channel: $CHANNEL" ;;
 esac
 if [[ "$CHANNEL" == all || "$CHANNEL" == homebrew ]]; then
-  put "bigfish1913/homebrew-tap" "Formula/tom.rb" "packaging/homebrew/tom.rb"
+  put "solos/homebrew-tap" "Formula/tom.rb" "packaging/homebrew/tom.rb"
 fi
 if [[ "$CHANNEL" == all || "$CHANNEL" == scoop ]]; then
-  put "bigfish1913/scoop-bucket" "bucket/tom.json" "packaging/scoop/tom.json"
+  put "solos/scoop-bucket" "bucket/tom.json" "packaging/scoop/tom.json"
 fi
 
 note "taps pushed"

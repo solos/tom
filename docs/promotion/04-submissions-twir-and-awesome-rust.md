@@ -67,7 +67,7 @@ A nomination is a short forum post, not an article. Draft:
 > result — because no provider will accept that conversation.
 >
 > It is MIT licensed and part of the `tom` family
-> (<https://github.com/bigfish1913/tom>), but the crate stands on its own as
+> (<https://github.com/solos/tom>), but the crate stands on its own as
 > an embeddable loop.
 
 Nominate it once. Repeatedly nominating the same crate is the fastest way to get
@@ -134,7 +134,7 @@ Exact template, from their CONTRIBUTING.md:
 Entry to paste (with the CI badge, which they also ask for):
 
 ```markdown
-* [bigfish1913/tom](https://github.com/bigfish1913/tom) [[tom-agent](https://crates.io/crates/tom-agent)] - Library-first coding-agent runtime: composable provider, agent-loop, tool and session crates, plus a terminal agent and a stable `#[repr(C)]` plugin ABI. [![CI](https://github.com/bigfish1913/tom/actions/workflows/ci.yml/badge.svg)](https://github.com/bigfish1913/tom/actions/workflows/ci.yml)
+* [solos/tom](https://github.com/solos/tom) [[tom-agent](https://crates.io/crates/tom-agent)] - Library-first coding-agent runtime: composable provider, agent-loop, tool and session crates, plus a terminal agent and a stable `#[repr(C)]` plugin ABI. [![CI](https://github.com/solos/tom/actions/workflows/ci.yml/badge.svg)](https://github.com/solos/tom/actions/workflows/ci.yml)
 ```
 
 **Where it goes:** `README.md` → `### Artificial Intelligence`. That section has

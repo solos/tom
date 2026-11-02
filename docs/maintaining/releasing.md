@@ -81,21 +81,41 @@ a documentation-only merge.
 
 ### One-time setup
 
+Every publishing job is gated on the repository variable `TOM_RELEASE_ENABLED`.
+Leave it unset in a fork or a renamed copy: `msrv`, `check`, `test` and the
+installer suites still run on every push and PR, while `Release automation`,
+`Prepare preview release`, the binary build and the install-channel jobs skip
+instead of failing on absent secrets. Only the canonical release repository sets
+
+```
+gh variable set TOM_RELEASE_ENABLED --body true --repo solos/tom
+```
+
+and additionally provides `CARGO_REGISTRY_TOKEN`, `RELEASE_AUTOMATION_TOKEN`, and
+a `solos`-owned Homebrew tap, Scoop bucket and winget submission identity. A
+repository that sets the variable but not the secrets gets an explicit
+`::error::` from the step that needs them, not a silent skip.
+
+The digest and URL references baked into `scripts/`, `packaging/`, the workflows
+and `Cargo.toml` (`workspace.package.repository`) all point at `solos/tom`; when
+this repository is renamed again, update those in the same commit as the remote,
+or the release jobs will publish against the old slug.
+
 The repository already uses `CARGO_REGISTRY_TOKEN` for crates.io. Add one secret,
 `RELEASE_AUTOMATION_TOKEN`, for preparing PRs and writing the external channels.
 Use a maintainer or dedicated bot **classic PAT with `public_repo`**, with access
 to these public repositories:
 
-- `bigfish1913/tom`: create/update Release PRs. Using a user token also lets
+- `solos/tom`: create/update Release PRs. Using a user token also lets
   those PRs and the documentation follow-up commit trigger their normal CI.
-- `bigfish1913/homebrew-tap` and `bigfish1913/scoop-bucket`: update channel files.
+- `solos/homebrew-tap` and `solos/scoop-bucket`: update channel files.
 - The token owner's fork of `microsoft/winget-pkgs`: create/sync the fork, push
   manifest branches, and submit upstream PRs. The upstream repository belongs to
   Microsoft; an own-repositories-only fine-grained token is not a replacement
   for this public contribution permission. See [GitHub's token limitations](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#fine-grained-personal-access-tokens-limitations).
 
 Set it in repository Settings → Secrets and variables → Actions, or locally with
-`gh secret set RELEASE_AUTOMATION_TOKEN --repo bigfish1913/tom` (interactive
+`gh secret set RELEASE_AUTOMATION_TOKEN --repo solos/tom` (interactive
 input). Never put the token in a commit or PR description. The publishing jobs
 use the built-in `GITHUB_TOKEN` for this repository and the Cargo secret only in
 the crates publishing step. The automation token is only supplied to the steps

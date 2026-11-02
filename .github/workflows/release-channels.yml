@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   manifests:
-    if: github.repository == 'bigfish1913/tom'
+    if: vars.TOM_RELEASE_ENABLED == 'true' && github.repository == 'solos/tom'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -36,7 +36,7 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
-          gh release download "$TAG" --repo bigfish1913/tom --pattern tom-release.json --dir "$RUNNER_TEMP"
+          gh release download "$TAG" --repo solos/tom --pattern tom-release.json --dir "$RUNNER_TEMP"
           python3 scripts/verify-channel-release.py "$TAG" "$RUNNER_TEMP/tom-release.json"
           bash scripts/refresh-channels.sh "${TAG#v}"
       - uses: actions/upload-artifact@v4

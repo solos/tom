@@ -14,7 +14,8 @@ permissions:
 
 jobs:
   detect:
-    if: github.repository == 'bigfish1913/tom' && github.ref == 'refs/heads/main'
+    # Same opt-in gate as ci.yml: a fork or a renamed copy must not publish.
+    if: vars.TOM_RELEASE_ENABLED == 'true' && github.repository == 'solos/tom' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read

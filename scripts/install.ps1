@@ -19,7 +19,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$Repo = 'bigfish1913/tom'
+$Repo = 'solos/tom'
 $TempDir = $null
 $PreviousSecurityProtocol = [Net.ServicePointManager]::SecurityProtocol
 

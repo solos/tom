@@ -24,10 +24,10 @@ cd "$(git rev-parse --show-toplevel)"
 
 me=$(gh api user --jq .login) || die "gh is not authenticated"
 branch="tom-$VERSION"
-dir="manifests/b/bigfish1913/tom/$VERSION"
+dir="manifests/b/solos/tom/$VERSION"
 # Reuse submissions when a job is retried.
 if gh api "repos/microsoft/winget-pkgs/contents/$dir" >/dev/null 2>&1; then
-  note "bigfish1913.tom $VERSION is already in Microsoft winget"
+  note "solos.tom $VERSION is already in Microsoft winget"
   exit 0
 fi
 # `gh pr list --head` accepts a bare branch, not owner:branch. Filter the
@@ -59,9 +59,9 @@ if ! gh api "repos/$me/winget-pkgs/git/ref/heads/$branch" >/dev/null 2>&1; then
 fi
 
 for f in \
-  packaging/winget/bigfish1913.tom.yaml \
-  packaging/winget/bigfish1913.tom.installer.yaml \
-  packaging/winget/bigfish1913.tom.locale.en-US.yaml; do
+  packaging/winget/solos.tom.yaml \
+  packaging/winget/solos.tom.installer.yaml \
+  packaging/winget/solos.tom.locale.en-US.yaml; do
   name=$(basename "$f")
   [[ -f "$f" ]] || die "missing $f"
   grep -q "^PackageVersion: $VERSION$" "$f" || die "wrong manifest version: $f"
@@ -76,7 +76,7 @@ for f in \
   fi
   note "put $dir/$name"
   gh api --method PUT "repos/$me/winget-pkgs/contents/$dir/$name" \
-    -f message="New version: bigfish1913.tom version $VERSION" \
+    -f message="New version: solos.tom version $VERSION" \
     -f content="$content" -f branch="$branch" "${sha_args[@]}" >/dev/null
 done
 
@@ -85,8 +85,8 @@ if [[ -n "$existing" ]]; then
 else
   note "open PR"
   gh pr create --repo microsoft/winget-pkgs --base master --head "$me:$branch" \
-    --title "New version: bigfish1913.tom version $VERSION" \
-    --body "Adds bigfish1913.tom $VERSION from bigfish1913/tom (tag v$VERSION). The installer is the portable Windows zip."
+    --title "New version: solos.tom version $VERSION" \
+    --body "Adds solos.tom $VERSION from solos/tom (tag v$VERSION). The installer is the portable Windows zip."
 fi
 note "Submitted for Microsoft review; this does not mean the package is live."
 note "If the policy bot requests a CLA, the maintainer must review and sign it."

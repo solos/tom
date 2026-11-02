@@ -39,7 +39,7 @@ project layout.
 **Prebuilt binary** (no Rust toolchain needed):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bigfish1913/tom/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/solos/tom/main/scripts/install.sh | sh
 ```
 
 Verifies the published SHA-256 checksum and installs to `/usr/local/bin` or
@@ -48,7 +48,7 @@ Verifies the published SHA-256 checksum and installs to `/usr/local/bin` or
 On **Windows (x64)**, run in PowerShell 5.1 or later:
 
 ```powershell
-& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/bigfish1913/tom/main/scripts/install.ps1).Content))
+& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/solos/tom/main/scripts/install.ps1).Content))
 ```
 
 Verifies the published SHA-256 checksum and installs to
@@ -66,8 +66,8 @@ tom --version
 **Package managers:**
 
 ```bash
-brew tap bigfish1913/tap && brew install tom          # macOS (Apple silicon), Linux
-scoop bucket add bigfish1913 https://github.com/bigfish1913/scoop-bucket
+brew tap solos/tap && brew install tom          # macOS (Apple silicon), Linux
+scoop bucket add solos https://github.com/solos/scoop-bucket
 scoop install tom                                     # Windows
 ```
 
@@ -79,7 +79,7 @@ review](https://github.com/microsoft/winget-pkgs/pull/444745).
 **From source:**
 
 ```bash
-git clone https://github.com/bigfish1913/tom.git
+git clone https://github.com/solos/tom.git
 cd tom && cargo run -p minimal   # offline agent, no API key required
 ```
 
@@ -455,7 +455,7 @@ machine. See [`docs/remote/user-guide.md`](docs/remote/user-guide.md).
 
 | | |
 | --- | --- |
-| Current release | **[0.16.0](https://github.com/bigfish1913/tom/releases)** (nine crates, published together) |
+| Current release | **[0.16.0](https://github.com/solos/tom/releases)** (nine crates, published together) |
 | Stability | `tom-ai`, `tom-agent`, `tom-tools`, `tom-harness`, `tom-plugin-sdk` are the intended stable surface |
 | MSRV | 1.88 |
 | Platforms | Linux, macOS, Windows (CI runs the suite on Linux) |
@@ -503,4 +503,4 @@ The `tom-*` crates are a Rust-native coding-agent stack.
 
 ## Star history
 
-[![Star History Chart](https://api.star-history.com/svg?repos=bigfish1913/tom,tom/tom-package&type=Date)](https://www.star-history.com/#bigfish1913/tom&tom/tom-package&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=solos/tom,tom/tom-package&type=Date)](https://www.star-history.com/#solos/tom&tom/tom-package&Date)

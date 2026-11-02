@@ -51,8 +51,8 @@ def verify(base_url):
     parsed = urlsplit(base_url)
     if parsed.scheme not in ('http', 'https') or not parsed.netloc or parsed.query or parsed.fragment:
         raise ValueError(f'Expected an HTTP(S) base URL without query/fragment: {base_url}')
-    check(base_url, '/', 200, CONTENT_CACHE, marker=b'bigfish1913/tom', content_type='text/html')
-    check(base_url, '/index.html?lang=en', 200, CONTENT_CACHE, marker=b'bigfish1913/tom')
+    check(base_url, '/', 200, CONTENT_CACHE, marker=b'solos/tom', content_type='text/html')
+    check(base_url, '/index.html?lang=en', 200, CONTENT_CACHE, marker=b'solos/tom')
     check(base_url, '/guide.html?doc=extension-authoring&lang=zh', 200, CONTENT_CACHE)
     check(base_url, '/data/packages.json', 200, CONTENT_CACHE, marker=b'tom-cli', content_type='application/json')
     check(base_url, '/data/packages-meta.json', 200, CONTENT_CACHE, content_type='application/json')

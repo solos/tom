@@ -47,6 +47,11 @@ release = true
 version_group = "tom"
 
 [[package]]
+name = "tom-mcp"
+release = true
+version_group = "tom"
+
+[[package]]
 name = "tom-harness"
 release = true
 version_group = "tom"
@@ -62,7 +67,7 @@ release = true
 version_group = "tom"
 changelog_update = true
 changelog_path = "CHANGELOG.md"
-changelog_include = ["tom-telemetry", "tom-ai", "tom-runtime", "tom-agent", "tom-plugin-sdk", "tom-extensions", "tom-tools", "tom-harness", "tom-tui"]
+changelog_include = ["tom-telemetry", "tom-ai", "tom-runtime", "tom-agent", "tom-plugin-sdk", "tom-extensions", "tom-tools", "tom-mcp", "tom-harness", "tom-tui"]
 git_tag_enable = true
 git_tag_name = "v{{ version }}"
 git_release_enable = true

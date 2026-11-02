@@ -19,7 +19,7 @@ spec.loader.exec_module(automation)
 
 # Keep this independent of YAML dependencies; compare every job's actual expression.
 CONDITION = " ".join("""${{ !(github.event_name == 'pull_request' &&
-    github.repository == 'bigfish1913/tom' &&
+    github.repository == 'solos/tom' &&
     github.event.pull_request.base.ref == 'main' &&
     github.event.pull_request.head.repo.full_name == github.repository &&
     startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -91,6 +91,22 @@ class ReadinessWorkflowTests(unittest.TestCase):
         # Do not weaken the actual consistency check or workspace tests.
         self.assertIn("git diff --exit-code -- crates/tom-cli/embedded-docs", self.ci)
         self.assertIn("run: cargo test --workspace --locked", self.ci)
+
+    def test_publishing_is_opt_in_so_forks_run_ci_without_secrets(self):
+        gate = "vars.TOM_RELEASE_ENABLED == 'true'"
+        for document, jobs in ((self.ci, ("release", "preview-version")), (self.release, ("detect",))):
+            for job in jobs:
+                with self.subTest(job=job):
+                    block = re.search(rf"^  {job}:\n(.*?)(?=^  [\w-]+:|\Z)", document, re.M | re.S)[1]
+                    condition = re.search(r"^    if: (.+)$", block, re.M)[1]
+                    self.assertIn(gate, condition)
+                    # The repository check must survive so a fork cannot enable it.
+                    self.assertIn("github.repository == 'solos/tom'", condition)
+        for workflow in ("release-binaries.yml", "release-channels.yml"):
+            with self.subTest(workflow=workflow):
+                text = (ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
+                self.assertIn(gate, text)
+        self.assertIn("python3 scripts/test_repository_slug.py", self.ci)
 
 
 class DraftReleasePrTests(unittest.TestCase):

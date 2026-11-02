@@ -18,7 +18,7 @@ tom --help
 从本仓库源码安装开发版本：
 
 ```bash
-git clone https://github.com/bigfish1913/tom.git
+git clone https://github.com/solos/tom.git
 cd tom
 cargo install --path crates/tom-cli --force
 ```
@@ -435,7 +435,7 @@ tom-plugin-sdk → tom-extensions → tom-tui → tom-cli
 ## 10. 文档查询入口
 
 - 在线文档：<https://tom.laofu.online/docs.html>
-- 源码仓库：<https://github.com/bigfish1913/tom>
+- 源码仓库：<https://github.com/solos/tom>
 - Rust API：<https://docs.rs/tom-agent>、<https://docs.rs/tom-plugin-sdk>
 
 - Package 与扩展作者指南：<https://tom.laofu.online/extension-authoring.md>

@@ -1,18 +1,18 @@
-# Created by hand for tom; see packaging/README.md in bigfish1913/tom
+# Created by hand for tom; see packaging/README.md in solos/tom
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 
-PackageIdentifier: bigfish1913.tom
+PackageIdentifier: solos.tom
 PackageVersion: 0.5.1
 PackageLocale: en-US
-Publisher: bigfish1913
-PublisherUrl: https://github.com/bigfish1913
-PublisherSupportUrl: https://github.com/bigfish1913/tom/issues
+Publisher: solos
+PublisherUrl: https://github.com/solos
+PublisherSupportUrl: https://github.com/solos/tom/issues
 Author: BigFish
 PackageName: tom
 PackageUrl: https://tom.laofu.online/
 License: MIT
-LicenseUrl: https://github.com/bigfish1913/tom/blob/main/LICENSE
-Copyright: Copyright (c) bigfish1913
+LicenseUrl: https://github.com/solos/tom/blob/main/LICENSE
+Copyright: Copyright (c) solos
 ShortDescription: Rust-native, library-first coding-agent runtime and terminal CLI
 Description: |-
   tom is a library-first coding-agent runtime written in Rust, plus a terminal
@@ -30,6 +30,6 @@ Tags:
 - developer-tools
 - llm
 - rust
-ReleaseNotesUrl: https://github.com/bigfish1913/tom/releases/tag/v0.5.1
+ReleaseNotesUrl: https://github.com/solos/tom/releases/tag/v0.5.1
 ManifestType: defaultLocale
 ManifestVersion: 1.12.0

@@ -19,11 +19,11 @@ const CACHE_FALLBACK_MAX_AGE_MS: i64 = 6 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS: u64 = 1800;
 const UPDATE_CHECK_CONCURRENCY: usize = 4;
 const GITHUB_RELEASES_API: &str =
-    "https://api.github.com/repos/bigfish1913/tom/releases?per_page=100";
+    "https://api.github.com/repos/solos/tom/releases?per_page=100";
 /// The single-release endpoint for the newest non-draft, non-prerelease tag.
 /// Authoritative version source for the stable CLI channel.
 const GITHUB_RELEASES_LATEST_API: &str =
-    "https://api.github.com/repos/bigfish1913/tom/releases/latest";
+    "https://api.github.com/repos/solos/tom/releases/latest";
 const STAGED_TOM_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const MAX_STAGED_TOM_OUTPUT_BYTES: usize = 4 * 1024;
 const MAX_SELF_UPDATE_STATUS_BYTES: u64 = 64 * 1024;

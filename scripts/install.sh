@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install the prebuilt `tom` binary from GitHub Releases.
 #
-#   curl -fsSL https://raw.githubusercontent.com/bigfish1913/tom/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/solos/tom/main/scripts/install.sh | sh
 #
 # Options (pass after `sh -s --`, or export as env vars):
 #   --version <v>     Install a specific version, e.g. --version 0.3.0 (default: latest)
@@ -12,7 +12,7 @@
 
 set -eu
 
-REPO="bigfish1913/tom"
+REPO="solos/tom"
 BIN="tom"
 VERSION=""
 INSTALL_DIR=""

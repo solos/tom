@@ -163,7 +163,7 @@ fan-out 到所有已注册 handler，合并返回的 <code>{skillPaths, promptPa
 单个 handler 报错不中止 fan-out。<code>out</code> 是插件拥有的 <code>StbString</code>，宿主通过插件
 注册时给的 <code>plugin_free_string</code> 回收。</p>
 <h3 id="provider">Provider 与渲染器</h3>
-<p>Provider 接入遵循 <a href="https://github.com/bigfish1913/tom/blob/feature-stream-porider/docs/extensions/provider-integration.md">Provider 接入规范</a>，
+<p>Provider 接入遵循 <a href="https://github.com/solos/tom/blob/feature-stream-porider/docs/extensions/provider-integration.md">Provider 接入规范</a>，
 完整模板见 <a href="https://github.com/tom/tom-package/tree/feature-1014/packages/tom-providers">tom-providers</a>。
 只改已有协议的端点和模型时优先使用 <code>models.json</code>；需要目录、认证策略或协议适配时使用独立 package。
 生产实现统一维护在 <a href="https://github.com/tom/tom-package/tree/feature-1014/packages/tom-providers">tom-providers</a>，

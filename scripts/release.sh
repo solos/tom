@@ -13,8 +13,8 @@
 # first. Phases are individually selectable (--only / --from / --skip).
 #
 # Credentials this expects (all optional until the phase that needs them):
-#   * git push access to bigfish1913/tom, bigfish1913/homebrew-tap,
-#     bigfish1913/scoop-bucket
+#   * git push access to solos/tom, solos/homebrew-tap,
+#     solos/scoop-bucket
 #   * `gh` authenticated (release assets, taps, fork + PR to winget-pkgs)
 #   * `cargo login` for the crates.io publish phase
 #   * SSH to the tom web host for the site phase
@@ -24,7 +24,7 @@
 
 set -euo pipefail
 
-REPO="bigfish1913/tom"
+REPO="solos/tom"
 # `<target>:<archive extension>` — must mirror the `archive:` column of the
 # release-binaries matrix. Each target publishes exactly ONE archive (plus its
 # `.sha256` sidecar), so requiring both formats here waits forever.

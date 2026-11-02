@@ -162,7 +162,7 @@ fan-out 到所有已注册 handler，合并返回的 `{skillPaths, promptPaths, 
 
 ### Provider 与渲染器
 
-Provider 接入遵循 [Provider 接入规范](https://github.com/bigfish1913/tom/blob/feature-stream-porider/docs/extensions/provider-integration.md)，
+Provider 接入遵循 [Provider 接入规范](https://github.com/solos/tom/blob/feature-stream-porider/docs/extensions/provider-integration.md)，
 完整模板见 [tom-providers](https://github.com/tom/tom-package/tree/feature-1014/packages/tom-providers)。
 只改已有协议的端点和模型时优先使用 `models.json`；需要目录、认证策略或协议适配时使用独立 package。
 生产实现统一维护在 [tom-providers](https://github.com/tom/tom-package/tree/feature-1014/packages/tom-providers)，

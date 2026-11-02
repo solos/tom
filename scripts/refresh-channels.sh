@@ -20,11 +20,15 @@ set -euo pipefail
 
 VERSION="${1:?usage: refresh-channels.sh X.Y.Z}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'invalid version' >&2; exit 1; }
-REPO="bigfish1913/tom"
+REPO="solos/tom"
 TAG="v$VERSION"
 
 die() { echo "error: $*" >&2; exit 1; }
 note() { echo "» $*"; }
+
+# Recipes and CI images differ on whether `python` exists; prefer python3 and
+# fall back so this script runs on minimal images without a python symlink.
+PYTHON=$(command -v python3 || command -v python) || die "python3 is required"
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -94,22 +98,22 @@ perl -pi -e "s/\"version\": \"$OLD\"/\"version\": \"$VERSION\"/; s/v$OLD/v$VERSI
 note "packaging/winget/*.yaml"
 DATE=$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.published_at // .created_at | split("T")[0]')
 [[ "$DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || die "could not read the release date"
-OLD_WINGET=$(grep -m1 -oE 'InstallerSha256: [0-9A-Fa-f]+' packaging/winget/bigfish1913.tom.installer.yaml | grep -oE '[0-9A-Fa-f]{64}')
+OLD_WINGET=$(grep -m1 -oE 'InstallerSha256: [0-9A-Fa-f]+' packaging/winget/solos.tom.installer.yaml | grep -oE '[0-9A-Fa-f]{64}')
 [[ -n "$OLD_WINGET" ]] || die "could not read the winget InstallerSha256"
 WIN_UPPER=$(printf '%s' "$SHA_WIN_X64" | tr 'a-f' 'A-F')
 perl -pi -e "s/PackageVersion: $OLD/PackageVersion: $VERSION/; s/v$OLD/v$VERSION/g; s/$OLD_WINGET/$WIN_UPPER/; s/ReleaseDate: [0-9-]+/ReleaseDate: $DATE/" \
-  packaging/winget/bigfish1913.tom.installer.yaml
+  packaging/winget/solos.tom.installer.yaml
 perl -pi -e "s/PackageVersion: $OLD/PackageVersion: $VERSION/; s/v$OLD/v$VERSION/g" \
-  packaging/winget/bigfish1913.tom.locale.en-US.yaml
+  packaging/winget/solos.tom.locale.en-US.yaml
 perl -pi -e "s/PackageVersion: $OLD/PackageVersion: $VERSION/" \
-  packaging/winget/bigfish1913.tom.yaml
+  packaging/winget/solos.tom.yaml
 
 # --------------------------------------------------------------------------
 # Site data: both current-release cards and the core crate snapshots.
 # These may lag behind the manifests by more than one release.
 # --------------------------------------------------------------------------
 note "website/data/{packages,site,locales}.json"
-python - "$VERSION" "$DATE" <<'PY'
+$PYTHON - "$VERSION" "$DATE" <<'PY'
 import datetime
 import json
 from pathlib import Path

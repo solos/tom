@@ -520,7 +520,7 @@ cargo build --package tom-langfuse --release
 | 🔍 Langfuse 官网     | [langfuse.com](https://langfuse.com)                                                                                |
 | 📚 Langfuse API 文档 | [langfuse.com/docs](https://langfuse.com/docs)                                                                      |
 | 🏠 tom 官网          | [tom.laofu.online](https://tom.laofu.online)                                                                        |
-| 💻 tom GitHub        | [bigfish1913/tom](https://github.com/bigfish1913/tom)                                                       |
+| 💻 tom GitHub        | [solos/tom](https://github.com/solos/tom)                                                       |
 
 ---
 

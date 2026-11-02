@@ -23,12 +23,12 @@ plugin SDK ABI to match. The updater validates its exact `tom --version` output.
   "schema_version": 1,
   "name": "tom-cli",
   "version": "0.3.24",
-  "repository": "https://github.com/bigfish1913/tom",
+  "repository": "https://github.com/solos/tom",
   "tag": "v0.3.24",
   "source_commit": "0123456789abcdef0123456789abcdef01234567",
   "targets": {
     "x86_64-pc-windows-msvc": {
-      "url": "https://github.com/bigfish1913/tom/releases/download/v0.3.24/tom-v0.3.24-x86_64-pc-windows-msvc.zip",
+      "url": "https://github.com/solos/tom/releases/download/v0.3.24/tom-v0.3.24-x86_64-pc-windows-msvc.zip",
       "format": "zip",
       "size": 123456,
       "sha256": "<64 lowercase hexadecimal characters>",

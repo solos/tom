@@ -48,7 +48,7 @@
           "links": [
             {
               "label": "README / How you build an agent",
-              "url": "https://github.com/bigfish1913/tom#how-you-build-an-agent"
+              "url": "https://github.com/solos/tom#how-you-build-an-agent"
             }
           ]
         },
@@ -64,12 +64,12 @@
           "code": {
             "language": "shell",
             "file": "README.md",
-            "content": "# 直接安装 CLI\ncargo install tom-cli\ntom -p \"hello\"\n\n# 从源码运行示例\ngit clone https://github.com/bigfish1913/tom.git\ncd tom\ncargo run -p minimal"
+            "content": "# 直接安装 CLI\ncargo install tom-cli\ntom -p \"hello\"\n\n# 从源码运行示例\ngit clone https://github.com/solos/tom.git\ncd tom\ncargo run -p minimal"
           },
           "links": [
             {
               "label": "配置说明",
-              "url": "https://github.com/bigfish1913/tom#configuration"
+              "url": "https://github.com/solos/tom#configuration"
             }
           ]
         },
@@ -90,7 +90,7 @@
           "links": [
             {
               "label": "tom-agent API",
-              "url": "https://github.com/bigfish1913/tom/tree/main/crates/tom-agent"
+              "url": "https://github.com/solos/tom/tree/main/crates/tom-agent"
             }
           ]
         },
@@ -111,7 +111,7 @@
           "links": [
             {
               "label": "内置工具与 ExecutionEnv",
-              "url": "https://github.com/bigfish1913/tom/tree/main/crates/tom-tools"
+              "url": "https://github.com/solos/tom/tree/main/crates/tom-tools"
             }
           ]
         },
@@ -132,7 +132,7 @@
           "links": [
             {
               "label": "Provider 配置",
-              "url": "https://github.com/bigfish1913/tom#configuration"
+              "url": "https://github.com/solos/tom#configuration"
             }
           ]
         },
@@ -153,7 +153,7 @@
           "links": [
             {
               "label": "Harness 模块",
-              "url": "https://github.com/bigfish1913/tom/tree/main/crates/tom-harness"
+              "url": "https://github.com/solos/tom/tree/main/crates/tom-harness"
             }
           ]
         },
@@ -174,11 +174,11 @@
           "links": [
             {
               "label": "插件 stub",
-              "url": "https://github.com/bigfish1913/tom/tree/main/examples/plugin-stub"
+              "url": "https://github.com/solos/tom/tree/main/examples/plugin-stub"
             },
             {
               "label": "插件加载器",
-              "url": "https://github.com/bigfish1913/tom/tree/main/crates/tom-extensions"
+              "url": "https://github.com/solos/tom/tree/main/crates/tom-extensions"
             }
           ]
         },
@@ -199,7 +199,7 @@
           "links": [
             {
               "label": "faux provider 源码",
-              "url": "https://github.com/bigfish1913/tom/tree/main/crates/tom-ai"
+              "url": "https://github.com/solos/tom/tree/main/crates/tom-ai"
             }
           ]
         }
@@ -227,7 +227,7 @@
           "links": [
             {
               "label": "Workspace README",
-              "url": "https://github.com/bigfish1913/tom#crates-published-as-tom-"
+              "url": "https://github.com/solos/tom#crates-published-as-tom-"
             }
           ]
         },
@@ -248,7 +248,7 @@
           "links": [
             {
               "label": "tom-ai exports",
-              "url": "https://github.com/bigfish1913/tom/blob/main/crates/tom-ai/src/lib.rs"
+              "url": "https://github.com/solos/tom/blob/main/crates/tom-ai/src/lib.rs"
             }
           ]
         },
@@ -269,7 +269,7 @@
           "links": [
             {
               "label": "tom-agent exports",
-              "url": "https://github.com/bigfish1913/tom/blob/main/crates/tom-agent/src/lib.rs"
+              "url": "https://github.com/solos/tom/blob/main/crates/tom-agent/src/lib.rs"
             }
           ]
         },
@@ -290,7 +290,7 @@
           "links": [
             {
               "label": "ExecutionEnv API",
-              "url": "https://github.com/bigfish1913/tom/blob/main/crates/tom-tools/src/lib.rs"
+              "url": "https://github.com/solos/tom/blob/main/crates/tom-tools/src/lib.rs"
             }
           ]
         },
@@ -311,7 +311,7 @@
           "links": [
             {
               "label": "Harness modules",
-              "url": "https://github.com/bigfish1913/tom/tree/main/crates/tom-harness"
+              "url": "https://github.com/solos/tom/tree/main/crates/tom-harness"
             }
           ]
         },
@@ -332,7 +332,7 @@
           "links": [
             {
               "label": "Agent loop",
-              "url": "https://github.com/bigfish1913/tom/blob/main/crates/tom-agent/src/lib.rs"
+              "url": "https://github.com/solos/tom/blob/main/crates/tom-agent/src/lib.rs"
             }
           ]
         },
@@ -353,7 +353,7 @@
           "links": [
             {
               "label": "AI event types",
-              "url": "https://github.com/bigfish1913/tom/blob/main/crates/tom-ai/src/lib.rs"
+              "url": "https://github.com/solos/tom/blob/main/crates/tom-ai/src/lib.rs"
             }
           ]
         },
@@ -374,11 +374,11 @@
           "links": [
             {
               "label": "SDK crate",
-              "url": "https://github.com/bigfish1913/tom/tree/main/crates/tom-plugin-sdk"
+              "url": "https://github.com/solos/tom/tree/main/crates/tom-plugin-sdk"
             },
             {
               "label": "ABI smoke test",
-              "url": "https://github.com/bigfish1913/tom/tree/main/crates/tom-extensions/tests"
+              "url": "https://github.com/solos/tom/tree/main/crates/tom-extensions/tests"
             }
           ]
         }

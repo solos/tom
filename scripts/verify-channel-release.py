@@ -6,7 +6,7 @@ import re
 import subprocess
 import sys
 
-REPOSITORY = "https://github.com/bigfish1913/tom"
+REPOSITORY = "https://github.com/solos/tom"
 TARGETS = {"x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu",
            "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "aarch64-apple-darwin"}
 
@@ -41,10 +41,10 @@ def verify(tag, manifest, release):
 if __name__ == "__main__":
     tag, filename = sys.argv[1:]
     release = json.loads(subprocess.check_output([
-        "gh", "api", f"repos/bigfish1913/tom/releases/tags/{tag}"], text=True, encoding="utf-8"))
+        "gh", "api", f"repos/solos/tom/releases/tags/{tag}"], text=True, encoding="utf-8"))
     manifest = json.loads(Path(filename).read_text(encoding="utf-8"))
     commit = json.loads(subprocess.check_output([
-        "gh", "api", f"repos/bigfish1913/tom/commits/{tag}"], text=True, encoding="utf-8"))
+        "gh", "api", f"repos/solos/tom/commits/{tag}"], text=True, encoding="utf-8"))
     if manifest.get("source_commit") != commit["sha"]:
         raise ValueError("release manifest source does not match the tag")
     verify(tag, manifest, release)

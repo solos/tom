@@ -627,7 +627,7 @@
                 "Provide real Provider credentials through CLI flags, ~/.tom/auth.json, models.json or environment variables. Never commit secrets."
               ],
               "code": {
-                "content": "# Install the CLI\ncargo install tom-cli\ntom -p \"hello\"\n\n# Run the example from source\ngit clone https://github.com/bigfish1913/tom.git\ncd tom\ncargo run -p minimal"
+                "content": "# Install the CLI\ncargo install tom-cli\ntom -p \"hello\"\n\n# Run the example from source\ngit clone https://github.com/solos/tom.git\ncd tom\ncargo run -p minimal"
               },
               "links": [
                 "Configuration"

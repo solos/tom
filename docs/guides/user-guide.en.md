@@ -17,7 +17,7 @@ tom --help
 To build the development version from source:
 
 ```bash
-git clone https://github.com/bigfish1913/tom.git
+git clone https://github.com/solos/tom.git
 cd tom
 cargo install --path crates/tom-cli --force
 ```
@@ -361,7 +361,7 @@ When a release changes user-visible behavior, update the release notes, README, 
 ## 10. Documentation map
 
 - Online documentation: https://tom.laofu.online/docs.html
-- Repository: https://github.com/bigfish1913/tom
+- Repository: https://github.com/solos/tom
 - Rust API: https://docs.rs/tom-agent and https://docs.rs/tom-plugin-sdk
 - Extension authoring: https://tom.laofu.online/extension-authoring.md
 - Remote mode: `docs/remote/user-guide.md`

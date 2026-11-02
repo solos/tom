@@ -8,7 +8,7 @@ import re
 import subprocess
 import tomllib
 
-REPOSITORY = "bigfish1913/tom"
+REPOSITORY = "solos/tom"
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 
 

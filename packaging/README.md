@@ -12,8 +12,8 @@ is a template with placeholders.
 | `cargo install tom-cli` | crates.io | **live** | none |
 | `curl … install.sh \| sh` | [`scripts/install.sh`](../scripts/install.sh) | **live** | none |
 | `cargo binstall tom-cli` | [`crates/tom-cli/Cargo.toml`](../crates/tom-cli/Cargo.toml) | **configured** | none — takes effect with the next published crate version |
-| Homebrew | [`bigfish1913/homebrew-tap`](https://github.com/bigfish1913/homebrew-tap) | **live** | none — `brew tap bigfish1913/tap && brew install tom` |
-| Scoop | [`bigfish1913/scoop-bucket`](https://github.com/bigfish1913/scoop-bucket) | **live** | none — `scoop bucket add bigfish1913 <bucket url>` |
+| Homebrew | [`solos/homebrew-tap`](https://github.com/solos/homebrew-tap) | **live** | none — `brew tap solos/tap && brew install tom` |
+| Scoop | [`solos/scoop-bucket`](https://github.com/solos/scoop-bucket) | **live** | none — `scoop bucket add solos <bucket url>` |
 | winget | [0.4.0 PR #453448](https://github.com/microsoft/winget-pkgs/pull/453448) | **submitted** | Microsoft review is pending; this submission does not mean 0.4.0 is available through winget yet |
 
 The files in this directory are the source of truth for the two taps; the tap
@@ -111,11 +111,11 @@ gh repo fork microsoft/winget-pkgs --clone=false       # 2. server-side fork, no
 UP=$(gh api repos/microsoft/winget-pkgs/commits/master --jq .sha)
 gh api --method POST repos/<you>/winget-pkgs/git/refs \
   -f ref="refs/heads/tom-$V" -f sha="$UP"               # 3. branch off upstream master
-# 4. PUT each file to manifests/b/bigfish1913/tom/$V/ via the contents API.
+# 4. PUT each file to manifests/b/solos/tom/$V/ via the contents API.
 #    Use `--input` with a JSON body: the README-sized payloads blow past the
 #    ~32 KB command-line limit if you pass them with -f content=.
 gh pr create --repo microsoft/winget-pkgs --base master --head <you>:tom-$V \
-  --title "New package: bigfish1913.tom version $V"     # 5. open the PR
+  --title "New package: solos.tom version $V"     # 5. open the PR
 ```
 
 One trap in the CLA step, worth not rediscovering: the policy bot matches
@@ -142,8 +142,8 @@ Verified on this machine:
   `92e1851f…1842`, matching `scoop/tom.json` and `homebrew/tom.rb` exactly. The
   zip was listed to confirm `tom.exe` really is at the archive root — the thing
   `bin` claims and the only reason the Scoop manifest works.
-- Both taps are pushed and public (`bigfish1913/homebrew-tap`,
-  `bigfish1913/scoop-bucket`), so their files are fetchable at the URLs the
+- Both taps are pushed and public (`solos/homebrew-tap`,
+  `solos/scoop-bucket`), so their files are fetchable at the URLs the
   package managers will use.
 
 **Not** verified here, and worth one manual pass before relying on them:

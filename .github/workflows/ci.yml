@@ -17,6 +17,12 @@ on:
 permissions:
   contents: read
 
+# Publishing is opt-in per repository. Forks and renamed copies run CI but do
+# not attempt to publish crates, tags or install channels until the repository
+# sets the TOM_RELEASE_ENABLED variable to "true" and provides the secrets
+# documented in docs/maintaining/releasing.md. Without this gate a fork's push
+# to `main` would fail on missing CARGO_REGISTRY_TOKEN / RELEASE_AUTOMATION_TOKEN.
+
 jobs:
   # Only upstream Release PR drafts defer validation until docs are synchronized.
   # Drafts cannot merge; ready_for_review reruns every check on the final head.
@@ -24,7 +30,7 @@ jobs:
     name: Rust 1.88 (${{ matrix.os }})
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/tom' &&
+      github.repository == 'solos/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -59,7 +65,7 @@ jobs:
     name: Windows installer (${{ matrix.shell }})
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/tom' &&
+      github.repository == 'solos/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -88,14 +94,14 @@ jobs:
     # Skipped draft runs must not satisfy the normal required check contexts.
     name: >-
       Cargo check (${{ matrix.os }})${{ github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/tom' &&
+      github.repository == 'solos/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
       github.event.pull_request.draft == true && ' (preparing release)' || '' }}
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/tom' &&
+      github.repository == 'solos/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -127,14 +133,14 @@ jobs:
   test:
     name: >-
       Cargo test${{ github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/tom' &&
+      github.repository == 'solos/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
       github.event.pull_request.draft == true && ' (preparing release)' || '' }}
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/tom' &&
+      github.repository == 'solos/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -213,12 +219,13 @@ jobs:
           python3 scripts/test_release_automation.py
           python3 scripts/test_release_pr_readiness.py
           python3 scripts/test_release_channels.py
+          python3 scripts/test_repository_slug.py
 
   windows-plugin-lifecycle:
     name: Windows plugin ABI and DLL lifecycle
     if: >-
       ${{ !(github.event_name == 'pull_request' &&
-      github.repository == 'bigfish1913/tom' &&
+      github.repository == 'solos/tom' &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
@@ -238,7 +245,7 @@ jobs:
 
   release:
     name: Release automation
-    if: github.repository == 'bigfish1913/tom' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: vars.TOM_RELEASE_ENABLED == 'true' && github.repository == 'solos/tom' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: [msrv, check, test, windows-installer]
     permissions:
       contents: write
@@ -250,7 +257,7 @@ jobs:
 
   preview-version:
     name: Prepare preview release
-    if: github.repository == 'bigfish1913/tom' && github.ref == 'refs/heads/preview' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: vars.TOM_RELEASE_ENABLED == 'true' && github.repository == 'solos/tom' && github.ref == 'refs/heads/preview' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: [msrv, check, test, windows-installer]
     runs-on: ubuntu-latest
     permissions:

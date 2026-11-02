@@ -5,18 +5,18 @@
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/bigfish1913/tom/releases/download/v0.5.1/tom-v0.5.1-x86_64-pc-windows-msvc.zip",
+      "url": "https://github.com/solos/tom/releases/download/v0.5.1/tom-v0.5.1-x86_64-pc-windows-msvc.zip",
       "hash": "6c3140c30f92af7cbb64cd0c115f0ce66233ab9b1541e3c6991563dd50bd0d9f"
     }
   },
   "bin": "tom.exe",
   "checkver": {
-    "github": "https://github.com/bigfish1913/tom"
+    "github": "https://github.com/solos/tom"
   },
   "autoupdate": {
     "architecture": {
       "64bit": {
-        "url": "https://github.com/bigfish1913/tom/releases/download/v$version/tom-v$version-x86_64-pc-windows-msvc.zip"
+        "url": "https://github.com/solos/tom/releases/download/v$version/tom-v$version-x86_64-pc-windows-msvc.zip"
       }
     },
     "hash": {

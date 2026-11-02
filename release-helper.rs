@@ -13,6 +13,7 @@ const RELEASE_CRATES: &[(&str, &str)] = &[
     ("tom-plugin-sdk", "crates/tom-plugin-sdk/Cargo.toml"),
     ("tom-extensions", "crates/tom-extensions/Cargo.toml"),
     ("tom-tools", "crates/tom-tools/Cargo.toml"),
+    ("tom-mcp", "crates/tom-mcp/Cargo.toml"),
     ("tom-harness", "crates/tom-harness/Cargo.toml"),
     ("tom-tui", "crates/tom-tui/Cargo.toml"),
     ("tom-cli", "crates/tom-cli/Cargo.toml"),
@@ -26,6 +27,7 @@ const INTERNAL_DEPENDENCIES: &[&str] = &[
     "tom-plugin-sdk",
     "tom-extensions",
     "tom-tools",
+    "tom-mcp",
     "tom-harness",
     "tom-tui",
 ];

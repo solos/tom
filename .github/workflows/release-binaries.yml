@@ -49,7 +49,7 @@ env:
 
 jobs:
   build:
-    if: github.repository == 'bigfish1913/tom'
+    if: vars.TOM_RELEASE_ENABLED == 'true' && github.repository == 'solos/tom'
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60

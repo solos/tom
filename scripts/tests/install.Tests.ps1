@@ -97,7 +97,7 @@ function Assert-Installed {
     Assert-True ((Get-FileHash -LiteralPath $Installed).Hash -eq $TestState.BinaryHash) 'Installed binary differs from the archive.'
     Assert-True ($TestState.Output -match 'tom fixture 0\.3\.19') 'Installed binary did not print its version.'
     Assert-True ($TestState.Downloads.Count -eq 2) 'Expected archive and checksum downloads.'
-    Assert-True ($TestState.Downloads[0] -eq 'https://github.com/bigfish1913/tom/releases/download/v0.3.19/tom-v0.3.19-x86_64-pc-windows-msvc.zip') 'Wrong archive URL.'
+    Assert-True ($TestState.Downloads[0] -eq 'https://github.com/solos/tom/releases/download/v0.3.19/tom-v0.3.19-x86_64-pc-windows-msvc.zip') 'Wrong archive URL.'
     Assert-True ($TestState.Downloads[1] -eq "$($TestState.Downloads[0]).sha256") 'Wrong checksum URL.'
 }
 
@@ -154,7 +154,7 @@ try {
     Invoke-Test 'latest-release' { $TestState.Options = @{} } {
         Assert-Installed
         Assert-True ($TestState.ApiCalls.Count -eq 1) 'Latest version did not call the API once.'
-        Assert-True ($TestState.ApiCalls[0] -eq 'https://api.github.com/repos/bigfish1913/tom/releases/latest') 'Wrong release API URL.'
+        Assert-True ($TestState.ApiCalls[0] -eq 'https://api.github.com/repos/solos/tom/releases/latest') 'Wrong release API URL.'
     }
     Invoke-Test 'pinned-preview' { $TestState.Options.DryRun = $true } {
         Assert-Preview

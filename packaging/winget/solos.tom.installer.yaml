@@ -1,7 +1,7 @@
-# Created by hand for tom; see packaging/README.md in bigfish1913/tom
+# Created by hand for tom; see packaging/README.md in solos/tom
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 
-PackageIdentifier: bigfish1913.tom
+PackageIdentifier: solos.tom
 PackageVersion: 0.5.1
 InstallerType: zip
 NestedInstallerType: portable
@@ -11,7 +11,7 @@ Installers:
   NestedInstallerFiles:
   - RelativeFilePath: tom.exe
     PortableCommandAlias: tom
-  InstallerUrl: https://github.com/bigfish1913/tom/releases/download/v0.5.1/tom-v0.5.1-x86_64-pc-windows-msvc.zip
+  InstallerUrl: https://github.com/solos/tom/releases/download/v0.5.1/tom-v0.5.1-x86_64-pc-windows-msvc.zip
   InstallerSha256: 6C3140C30F92AF7CBB64CD0C115F0CE66233AB9B1541E3C6991563DD50BD0D9F
 ManifestType: installer
 ManifestVersion: 1.12.0

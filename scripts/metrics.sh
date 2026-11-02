@@ -11,7 +11,7 @@
 # site traffic number worth splitting by referrer.
 set -uo pipefail
 
-REPO="bigfish1913/tom"
+REPO="solos/tom"
 CRATES=(
   tom-telemetry tom-ai tom-agent tom-plugin-sdk tom-extensions
   tom-tools tom-harness tom-tui tom-cli
