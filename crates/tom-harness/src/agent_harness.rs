@@ -373,6 +373,50 @@ pub trait AgentLane: Send + Sync {
         label: Option<&str>,
     ) -> HarnessResult<NavigationResult>;
 
+    /// Navigation with an explicit branch-summary token budget.
+    ///
+    /// `branchSummary.reserveTokens` is a user setting, and the host — not the
+    /// harness — is what reads settings. The default forwards to
+    /// [`Self::navigate_tree`] so an implementation that does not summarize is
+    /// still correct.
+    async fn navigate_tree_with_budget(
+        &self,
+        target_id: Option<&str>,
+        summarize: bool,
+        custom_instructions: Option<&str>,
+        _reserve_tokens: Option<i64>,
+    ) -> HarnessResult<NavigationResult> {
+        self.navigate_tree(target_id, summarize, custom_instructions, None)
+            .await
+    }
+
+    /// Navigation with an explicit branch-summary budget *and* an entry label.
+    ///
+    /// The label is applied to the new leaf after the move; `navigate_tree`
+    /// takes one but no implementation applied it, so the argument was dead.
+    async fn navigate_tree_labeled(
+        &self,
+        target_id: Option<&str>,
+        summarize: bool,
+        custom_instructions: Option<&str>,
+        reserve_tokens: Option<i64>,
+        label: Option<&str>,
+    ) -> HarnessResult<NavigationResult> {
+        let result = self
+            .navigate_tree_with_budget(target_id, summarize, custom_instructions, reserve_tokens)
+            .await?;
+        // `navigate_tree` has always taken a label and never applied it. Apply
+        // it here so the argument is not dead and `/tree` can name a branch.
+        if let (Some(label), NavigationOutcome::Completed { new_leaf_id, .. }) =
+            (label, &result.outcome)
+        {
+            if let Some(id) = new_leaf_id {
+                self.set_label(id, Some(label)).await?;
+            }
+        }
+        Ok(result)
+    }
+
     async fn abort(&self) -> HarnessResult<AbortResult>;
 
     async fn steer(&self, message: AgentMessage) -> HarnessResult<QueueResult>;
@@ -473,6 +517,11 @@ struct ActiveRun {
     run_id: String,
     lane: String,
     signal: CancellationToken,
+    /// Cancels an in-flight retry delay without aborting the run (RPC
+    /// `abort_retry`). Separate from `signal` on purpose: cancelling the run
+    /// would also discard the operation's recovery frames, while "stop
+    /// retrying" must leave the failed attempt's result in place.
+    retry_cancel: CancellationToken,
     /// Cancels delegated work on abort OR normal parent completion.
     children: CancellationToken,
     idle: Arc<tokio::sync::Notify>,
@@ -1054,6 +1103,115 @@ impl AgentHarness {
     /// context is to the threshold without duplicating the defaults.
     pub fn compaction_settings(&self) -> crate::types::CompactionSettings {
         self.inner.lock().unwrap().compaction.clone()
+    }
+
+    /// Change how a queue drains while the harness is live (RPC
+    /// `set_steering_mode` / `set_follow_up_mode`).
+    ///
+    /// Only the mode changes; already-queued messages stay queued and are
+    /// drained under the new rule, which is what a client switching modes
+    /// mid-session expects.
+    pub fn set_queue_mode(
+        &self,
+        kind: crate::session::types::QueueKind,
+        mode: tom_agent::types::QueueMode,
+    ) {
+        use crate::session::types::QueueKind;
+        // Clone the handle: the queue is an `Arc` shared with the lane handles,
+        // and holding the `inner` guard across the second lock is unnecessary.
+        let queue = {
+            let inner = self.inner.lock().unwrap();
+            match kind {
+                QueueKind::Steer => Arc::clone(&inner.steering_queue),
+                QueueKind::FollowUp => Arc::clone(&inner.follow_up_queue),
+                QueueKind::NextRun => Arc::clone(&inner.next_run_queue),
+                // Context messages are committed at a turn boundary, not drained
+                // by a queue mode; there is nothing to switch.
+                QueueKind::Context => return,
+            }
+        };
+        queue.lock().unwrap().mode = mode;
+    }
+
+    /// The drain mode currently in force for a queue.
+    pub fn queue_mode(
+        &self,
+        kind: crate::session::types::QueueKind,
+    ) -> tom_agent::types::QueueMode {
+        use crate::session::types::QueueKind;
+        let queue = {
+            let inner = self.inner.lock().unwrap();
+            match kind {
+                QueueKind::Steer => Arc::clone(&inner.steering_queue),
+                QueueKind::FollowUp => Arc::clone(&inner.follow_up_queue),
+                QueueKind::NextRun => Arc::clone(&inner.next_run_queue),
+                QueueKind::Context => return tom_agent::types::QueueMode::OneAtATime,
+            }
+        };
+        let mode = queue.lock().unwrap().mode;
+        mode
+    }
+
+    /// Enable or disable automatic compaction at runtime (RPC
+    /// `set_auto_compaction`). The loop reads the setting from its per-operation
+    /// snapshot, so a change takes effect on the next operation rather than
+    /// interrupting an in-flight one.
+    pub fn set_auto_compaction(&self, enabled: bool) {
+        self.inner.lock().unwrap().compaction.enabled = enabled;
+    }
+
+    /// Whether automatic compaction is currently enabled.
+    pub fn auto_compaction_enabled(&self) -> bool {
+        self.inner.lock().unwrap().compaction.enabled
+    }
+
+    /// Enable or disable automatic retry at runtime (RPC `set_auto_retry`).
+    ///
+    /// Only `enabled` is mutable: the delays and attempt ceiling come from the
+    /// user's `retry` settings block and are not a per-session decision. A
+    /// retry already sleeping keeps its timer; turning retry off prevents the
+    /// *next* scheduled attempt.
+    pub fn set_auto_retry(&self, enabled: bool) {
+        self.inner.lock().unwrap().retry.enabled = enabled;
+    }
+
+    /// Whether automatic retry is currently enabled.
+    pub fn auto_retry_enabled(&self) -> bool {
+        self.inner.lock().unwrap().retry.enabled
+    }
+
+    /// The current operation's retry-cancel token, or a token that can never
+    /// fire when no operation is active.
+    fn retry_cancel_token(&self) -> CancellationToken {
+        self.inner
+            .lock()
+            .unwrap()
+            .active_run
+            .as_ref()
+            .map(|run| run.retry_cancel.clone())
+            .unwrap_or_default()
+    }
+
+    /// Cancel an in-flight retry delay (RPC `abort_retry`).
+    ///
+    /// Returns `true` when an operation was active. The failed attempt stays the
+    /// operation's result; only the wait is cancelled, so this is not
+    /// equivalent to `abort`.
+    pub fn abort_retry(&self) -> bool {
+        let token = self
+            .inner
+            .lock()
+            .unwrap()
+            .active_run
+            .as_ref()
+            .map(|run| run.retry_cancel.clone());
+        match token {
+            Some(token) => {
+                token.cancel();
+                true
+            }
+            None => false,
+        }
     }
 
     /// The run recovery repaired and that is waiting to be continued, if any.
@@ -2529,11 +2687,165 @@ impl AgentHarness {
             run_id: run_id.clone(),
             lane: self.lane.clone(),
             signal: signal.clone(),
+            retry_cancel: CancellationToken::new(),
             children: self.child_scope.lock().unwrap().child_token(),
             idle: Arc::clone(&idle),
             kind,
         });
         Ok((run_id, signal, idle))
+    }
+
+    /// Navigation with an optional branch summary, applied before the move.
+    ///
+    /// Inherent rather than a trait method: it is an implementation detail of
+    /// this harness, and a trait impl cannot declare private helpers.
+    async fn navigate_tree_budgeted(
+        &self,
+        target_id: Option<&str>,
+        summarize: bool,
+        custom_instructions: Option<&str>,
+        reserve_tokens: Option<i64>,
+    ) -> HarnessResult<NavigationResult> {
+        let run_id = self.session.id_generator().next();
+        let target = target_id.filter(|id| !id.is_empty());
+
+        // Summarize the branch *being left* before moving, because after the
+        // move the entries are no longer on this lane's path. A summary that
+        // fails must not strand the user mid-navigation: the move still
+        // happens and `summary_entry` stays `None`.
+        let summary = if summarize {
+            match self
+                .summarize_branch_before_leaving(&run_id, custom_instructions, reserve_tokens)
+                .await
+            {
+                Ok(entry) => entry,
+                Err(error) => {
+                    tracing::warn!(%error, "branch summary failed; navigating without one");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        match self.session.move_lane(&self.lane, target).await {
+            Ok(()) => {
+                let leaf = self
+                    .session
+                    .view(&self.lane)
+                    .get_leaf_id()
+                    .await
+                    .map_err(session_to_harness_err)?;
+                Ok(NavigationResult {
+                    run_id,
+                    outcome: NavigationOutcome::Completed {
+                        new_leaf_id: leaf,
+                        summary_entry: summary,
+                    },
+                })
+            }
+            Err(error) => Ok(NavigationResult {
+                run_id,
+                outcome: NavigationOutcome::Failed {
+                    leaf_id: self
+                        .session
+                        .view(&self.lane)
+                        .get_leaf_id()
+                        .await
+                        .ok()
+                        .flatten(),
+                    error: OperationError {
+                        code: "navigation_failed".into(),
+                        message: error.to_string(),
+                    },
+                },
+            }),
+        }
+    }
+
+    /// Summarize the current branch and persist the summary as a
+    /// `branch_summary` entry.
+    ///
+    /// Called *before* moving the lane, while the entries being abandoned are
+    /// still on this branch's path. Returns `Ok(None)` when there is nothing to
+    /// summarize (an empty branch), which is not an error.
+    async fn summarize_branch_before_leaving(
+        &self,
+        run_id: &str,
+        custom_instructions: Option<&str>,
+        reserve_tokens: Option<i64>,
+    ) -> HarnessResult<Option<Entry>> {
+        use crate::compaction::branch_summary::{
+            generate_branch_summary, GenerateBranchSummaryOptions,
+        };
+        use crate::compaction::compaction::CompactionLlmOptions;
+
+        let entries = self.branch_path_oldest_first().await?;
+        if entries.is_empty() {
+            return Ok(None);
+        }
+        let from_id = entries
+            .last()
+            .map(|entry| entry.id().to_string())
+            .unwrap_or_default();
+
+        let (provider, model, thinking_level, retry, stream_options) = {
+            let inner = self.inner.lock().unwrap();
+            let model = inner.model.clone();
+            (
+                Self::resolve_provider(&inner.models, &model)?,
+                model,
+                inner.thinking_level,
+                if inner.retry.enabled {
+                    Some(inner.retry.clone())
+                } else {
+                    None
+                },
+                inner.stream_options.clone(),
+            )
+        };
+
+        let result = generate_branch_summary(
+            &entries,
+            &GenerateBranchSummaryOptions {
+                llm: CompactionLlmOptions {
+                    provider,
+                    model,
+                    api_key: None,
+                    signal: CancellationToken::new(),
+                    thinking_level: Some(thinking_level),
+                    retry,
+                    custom_instructions: custom_instructions.map(str::to_string),
+                    stream_options,
+                },
+                replace_instructions: false,
+                reserve_tokens: reserve_tokens
+                    .unwrap_or(GenerateBranchSummaryOptions::DEFAULT_RESERVE_TOKENS),
+            },
+        )
+        .await
+        .map_err(|error| HarnessError::agent(error.to_string()))?;
+
+        let details = serde_json::json!({
+            "readFiles": result.read_files,
+            "modifiedFiles": result.modified_files,
+        });
+        let entry = ProvisionedEntry {
+            id: self.session.id_generator().next(),
+            kind: ProvisionedKind::BranchSummary {
+                from_id,
+                summary: result.summary,
+                details: Some(details),
+                usage: result.usage,
+            },
+        };
+        self.write_write_deferred(run_id, &entry).await?;
+        let committed = self
+            .session
+            .append_entry(entry, &self.lane)
+            .await
+            .map_err(session_to_harness_err)?;
+        Ok(Some(committed))
     }
 
     /// Release the active-run guard and notify idle waiters.
@@ -4676,9 +4988,14 @@ impl AgentHarness {
                     error: retry_error.expect("retry eligibility requires an error"),
                 })
                 .await;
+            // `abort_retry` cancels this token directly; it is deliberately
+            // not the run signal, because "stop retrying" must leave the failed
+            // attempt as the operation's result instead of aborting the run.
+            let retry_cancel = self.retry_cancel_token();
             tokio::select! {
                 _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => {}
                 _ = signal.cancelled() => break attempt_result,
+                _ = retry_cancel.cancelled() => break attempt_result,
             }
             if signal.is_cancelled() {
                 break attempt_result;
@@ -5188,45 +5505,32 @@ impl AgentLane for AgentHarness {
     async fn navigate_tree(
         &self,
         target_id: Option<&str>,
-        _summarize: bool,
-        _custom_instructions: Option<&str>,
+        summarize: bool,
+        custom_instructions: Option<&str>,
         _label: Option<&str>,
     ) -> HarnessResult<NavigationResult> {
-        let run_id = self.session.id_generator().next();
-        let target = target_id.filter(|id| !id.is_empty());
-        match self.session.move_lane(&self.lane, target).await {
-            Ok(()) => {
-                let leaf = self
-                    .session
-                    .view(&self.lane)
-                    .get_leaf_id()
-                    .await
-                    .map_err(session_to_harness_err)?;
-                Ok(NavigationResult {
-                    run_id,
-                    outcome: NavigationOutcome::Completed {
-                        new_leaf_id: leaf,
-                        summary_entry: None,
-                    },
-                })
-            }
-            Err(error) => Ok(NavigationResult {
-                run_id,
-                outcome: NavigationOutcome::Failed {
-                    leaf_id: self
-                        .session
-                        .view(&self.lane)
-                        .get_leaf_id()
-                        .await
-                        .ok()
-                        .flatten(),
-                    error: OperationError {
-                        code: "navigation_failed".into(),
-                        message: error.to_string(),
-                    },
-                },
-            }),
-        }
+        // `branchSummary.reserveTokens` is a user setting, so the default here
+        // is only the fallback for an embedding caller that has no settings.
+        self.navigate_tree_with_budget(target_id, summarize, custom_instructions, None)
+            .await
+    }
+
+    async fn navigate_tree_with_budget(
+        &self,
+        target_id: Option<&str>,
+        summarize: bool,
+        custom_instructions: Option<&str>,
+        reserve_tokens: Option<i64>,
+    ) -> HarnessResult<NavigationResult> {
+        // Inherent method: the trait impl cannot declare private helpers.
+        AgentHarness::navigate_tree_budgeted(
+            self,
+            target_id,
+            summarize,
+            custom_instructions,
+            reserve_tokens,
+        )
+        .await
     }
 
     async fn abort(&self) -> HarnessResult<AbortResult> {
@@ -6430,6 +6734,123 @@ mod session_switch_tests {
         assert_eq!(drained.len(), 1);
         assert_eq!(drained[0].what, "the run-budget stop notice");
         assert!(harness.take_write_failures().is_empty());
+    }
+
+    /// Navigation with `summarize` must actually persist a `branch_summary`
+    /// entry. Before this was wired, `navigate_tree` discarded the flag and the
+    /// result's `summary_entry` was always `None`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn navigate_tree_with_summarize_persists_a_branch_summary() {
+        use tom_ai::providers::faux::{FauxProvider, FauxScript};
+
+        // One queued response per prompt plus one for the branch summary: the
+        // faux provider has no default, so an exhausted script is a hard error.
+        let provider = FauxProvider::new(
+            FauxScript::new()
+                .with_text("first")
+                .with_text("second")
+                .with_text("summary of the branch"),
+        );
+        let mut options = opts();
+        options.model = provider.default_model().clone();
+        options.models = vec![provider];
+        let harness = AgentHarness::create(options).await.unwrap();
+        let lane = harness.lane("main");
+
+        // Two turns give the branch something to summarize and a second leaf to
+        // navigate back to.
+        lane.prompt_text("first", Vec::new()).await.unwrap();
+        let first_leaf = lane.get_leaf_id().await.unwrap().expect("first leaf");
+        lane.prompt_text("second", Vec::new()).await.unwrap();
+
+        let result = lane
+            .navigate_tree_with_budget(Some(&first_leaf), true, Some("focus"), Some(1234))
+            .await
+            .expect("navigate");
+
+        let summary = match result.outcome {
+            NavigationOutcome::Completed {
+                summary_entry,
+                new_leaf_id,
+            } => {
+                assert_eq!(new_leaf_id.as_deref(), Some(first_leaf.as_str()));
+                summary_entry.expect("a summary entry must be produced")
+            }
+            other => panic!("expected a completed navigation, got {other:?}"),
+        };
+        assert_eq!(summary.base().entry_type, "branch_summary");
+
+        let entries = harness.find_entries(&EntryQuery::default()).await.unwrap();
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.base().entry_type == "branch_summary"),
+            "the summary must be persisted, got: {:?}",
+            entries
+                .iter()
+                .map(|e| e.base().entry_type.clone())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// `navigate_tree_labeled` must apply the label it is given. The plain
+    /// entry point accepted a label for a long time and silently dropped it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn navigate_tree_labeled_applies_the_label() {
+        use tom_ai::providers::faux::{FauxProvider, FauxScript};
+
+        let provider = FauxProvider::new(FauxScript::new().with_text("x"));
+        let mut options = opts();
+        options.model = provider.default_model().clone();
+        options.models = vec![provider];
+        let harness = AgentHarness::create(options).await.unwrap();
+        let lane = harness.lane("main");
+
+        lane.prompt_text("only", Vec::new()).await.unwrap();
+        let leaf = lane.get_leaf_id().await.unwrap().expect("leaf");
+        lane.prompt_text("second", Vec::new()).await.unwrap();
+
+        lane.navigate_tree_labeled(Some(&leaf), false, None, None, Some("checkpoint"))
+            .await
+            .expect("navigate");
+
+        let label = harness.get_label(&leaf).await.unwrap();
+        assert_eq!(label.as_deref(), Some("checkpoint"));
+    }
+
+    /// Without `summarize`, navigation must not spend an LLM call or write an
+    /// entry.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn navigate_tree_without_summarize_writes_nothing() {
+        use tom_ai::providers::faux::{FauxProvider, FauxScript};
+
+        let provider = FauxProvider::new(FauxScript::new().with_text("x"));
+        let mut options = opts();
+        options.model = provider.default_model().clone();
+        options.models = vec![provider];
+        let harness = AgentHarness::create(options).await.unwrap();
+        let lane = harness.lane("main");
+
+        lane.prompt_text("only", Vec::new()).await.unwrap();
+        let leaf = lane.get_leaf_id().await.unwrap().expect("leaf");
+
+        let result = lane
+            .navigate_tree(Some(&leaf), false, None, None)
+            .await
+            .expect("navigate");
+        match result.outcome {
+            NavigationOutcome::Completed { summary_entry, .. } => {
+                assert!(summary_entry.is_none(), "no summary was requested");
+            }
+            other => panic!("expected a completed navigation, got {other:?}"),
+        }
+        let entries = harness.find_entries(&EntryQuery::default()).await.unwrap();
+        assert!(
+            !entries
+                .iter()
+                .any(|entry| entry.base().entry_type == "branch_summary"),
+            "a plain navigation must not write a summary"
+        );
     }
 
     /// A backend failing every write must not grow the queue without bound.

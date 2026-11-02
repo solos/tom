@@ -41,6 +41,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock, RwLock};
 
+use tokio::runtime::Handle;
 use tom_ai::types::ThinkingLevel;
 use tom_extensions::RuntimeActionHost;
 use tom_harness::agent_harness::{
@@ -48,7 +49,6 @@ use tom_harness::agent_harness::{
 };
 use tom_harness::session::session::Session;
 use tom_harness::types::SendMessageOptions;
-use tokio::runtime::Handle;
 
 use crate::session::{default_session_dir, open_session_by_id_in_dir};
 
@@ -629,12 +629,17 @@ impl RuntimeActionHost for HarnessActionHost {
         let summarize = arg_bool(&args, "summarize");
         let custom = arg_str_opt(&args, "customInstructions");
         let label = arg_str_opt(&args, "label");
+        // `branchSummary.skipPrompt: true` means "do not generate a summary";
+        // honour it here rather than ignoring the flag the harness now supports.
+        let settings = crate::settings::load_settings().unwrap_or_default();
+        let summarize = summarize && !settings.branch_summary_skipped();
         let lane = self.harness()?.lane("main");
         let result = lane
-            .navigate_tree(
+            .navigate_tree_labeled(
                 target_id.as_deref(),
                 summarize,
                 custom.as_deref(),
+                settings.branch_summary_reserve_tokens(),
                 label.as_deref(),
             )
             .await

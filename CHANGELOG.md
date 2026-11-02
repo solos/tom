@@ -13,6 +13,17 @@ from; the matching [GitHub Release](../../releases) carries the same notes.
 
 ### Added
 
+- *(settings)* wire the four settings that parsed but were previously ignored:
+  `shellPath` now selects the `bash` tool's interpreter (and the RPC `bash`
+  command's, so both agree; a PowerShell path gets PowerShell's flags instead of
+  silently failing every command), `branchSummary.reserveTokens`/`skipPrompt`
+  now reach branch summarization, `treeFilterMode` picks what `/tree` opens
+  with, and `externalEditor` joins the editor resolution chain ahead of
+  `$VISUAL`/`$EDITOR`.
+- *(harness)* navigation with `summarize` now generates and persists a
+  `branch_summary` entry before moving the lane. The flag used to be discarded,
+  so `summary_entry` was always `None` and `generate_branch_summary` had no
+  production caller. A failed summary still completes the navigation.
 - *(mcp)* new `tom-mcp` crate: a Model Context Protocol client with stdio and
   streamable-HTTP transports, tool discovery, and `mcp__<server>__<tool>`
   adapters that plug into the agent as ordinary tools. Configured through

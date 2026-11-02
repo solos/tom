@@ -15,14 +15,14 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-use tom_agent::agent_tool::AgentTool;
-use tom_agent::error::AgentError;
-use tom_agent::types::{AgentToolResult, TextContentOrImage, ToolResultPartial};
-use tom_ai::types::{ConstrainedSamplingConfig, ConstrainedStrictness, Tool};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
+use tom_agent::agent_tool::AgentTool;
+use tom_agent::error::AgentError;
+use tom_agent::types::{AgentToolResult, TextContentOrImage, ToolResultPartial};
+use tom_ai::types::{ConstrainedSamplingConfig, ConstrainedStrictness, Tool};
 
 use crate::env::ExecutionEnv;
 use crate::error::{ExecutionError, ExecutionErrorCode};
@@ -64,6 +64,9 @@ pub struct BashExecution {
     pub cwd: PathBuf,
     pub env: HashMap<String, String>,
     pub inherit_env: bool,
+    /// Interpreter to run `command` with. `None` keeps the platform default
+    /// shell; a `prepare` hook (or `shellPath`) can override it.
+    pub shell: Option<crate::env::ShellOverride>,
 }
 
 /// Async hook called immediately before shell execution, matching native Pi's
@@ -80,6 +83,9 @@ pub struct BashToolOptions {
     /// `None` uses `DEFAULT_BASH_TIMEOUT_SECONDS`, not an unlimited deadline.
     /// A model-supplied timeout still wins.
     pub default_timeout: Option<f64>,
+    /// Interpreter used when neither `prepare` nor the caller sets one.
+    /// This is how `settings.json`'s `shellPath` reaches the tool.
+    pub shell: Option<crate::env::ShellOverride>,
     /// Optional async hook that can adjust command, cwd, and environment.
     pub prepare: Option<BashPrepare>,
 }
@@ -161,6 +167,7 @@ impl AgentTool for BashTool {
             cwd: self.env.cwd().to_path_buf(),
             env: HashMap::new(),
             inherit_env: true,
+            shell: self.options.shell.clone(),
         };
         if let Some(prepare) = &self.options.prepare {
             prepare(&mut execution).await.map_err(AgentError::Tool)?;
@@ -230,7 +237,7 @@ impl AgentTool for BashTool {
         let cwd = execution.cwd;
         let env = self.env.clone();
         let capture_opts = ShellCaptureOptions {
-            shell: None,
+            shell: execution.shell,
             cwd: Some(cwd),
             env: Some(execution.env),
             inherit_env: execution.inherit_env,

@@ -250,6 +250,29 @@ tom 使用全局 `settings.json` 中的 `lastTomChangelogVersion` 记录已读�
 `lastChangelogVersion` 干扰。已有配置缺少 tom 标记时，只补充展示当前版本一次；首次安装
 直接建立基线。设置 `collapseChangelog: true` 可显示简短更新提示。
 
+### 终端、编辑器与分支摘要
+
+以下四项在 `settings.json` 中配置：
+
+| 键 | 作用 |
+| --- | --- |
+| `shellPath` | `bash` 工具与 RPC `bash` 命令使用的解释器。默认按平台选择；指定 PowerShell 路径时会自动改用其非交互参数 |
+| `shellCommandPrefix` | 追加在每条 shell 命令前的语句（例如 `shopt -s expand_aliases`） |
+| `externalEditor` | 外部编辑器命令，优先于 `$VISUAL` / `$EDITOR` |
+| `treeFilterMode` | `/tree` 打开时的过滤：`default`（隐藏工具结果）、`no-tools`、`user-only`、`labeled-only`、`all` |
+
+分支摘要由 `branchSummary` 控制：`reserveTokens` 限定摘要请求的 token 预算，
+`skipPrompt: true` 表示切分支时不生成摘要。
+
+```json
+{
+  "shellPath": "/bin/zsh",
+  "externalEditor": "code --wait",
+  "treeFilterMode": "user-only",
+  "branchSummary": { "reserveTokens": 16384, "skipPrompt": false }
+}
+```
+
 ### 跳到最新消息
 
 在 `--tui-mode fullscreen` 和 `--connect` 中，向上滚动回看历史时，消息区底部会显示

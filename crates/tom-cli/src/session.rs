@@ -2298,8 +2298,44 @@ pub fn bash_options() -> tom_tools::tools::bash::BashToolOptions {
     BashToolOptions {
         command_prefix: settings.shell_command_prefix.clone(),
         default_timeout: Some(default),
+        shell: settings.shell_path.as_deref().map(shell_override_for),
         prepare: None,
     }
+}
+
+/// Turn a `shellPath` setting into the interpreter invocation the bash tool
+/// expects.
+///
+/// The bash tool hands the command to the interpreter as a single argv entry, so
+/// a POSIX shell needs `-c`. PowerShell cannot understand POSIX syntax at all, so
+/// a `shellPath` naming it gets PowerShell's own non-interactive flags instead of
+/// silently failing on every command.
+fn shell_override_for(path: &str) -> tom_tools::env::ShellOverride {
+    use tom_tools::env::ShellOverride;
+    let program = std::path::PathBuf::from(path);
+    // Take the file name from the raw string rather than `Path::file_stem`:
+    // on Unix a Windows path is one component, so `C:\...\pwsh.exe` would keep
+    // its directories and never match. A shell path is user input from a
+    // settings file that may have been written on another platform.
+    let name = path
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(path)
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let args = if name.starts_with("pwsh") || name.starts_with("powershell") {
+        vec![
+            "-NoLogo".to_string(),
+            "-NoProfile".to_string(),
+            "-NonInteractive".to_string(),
+            "-Command".to_string(),
+        ]
+    } else {
+        vec!["-c".to_string()]
+    };
+    ShellOverride { program, args }
 }
 
 fn build_tools(ctx: &ExecutionToolContext, args: &Args) -> Vec<HarnessTool> {
@@ -2643,8 +2679,8 @@ async fn fork_session_at_launch(
 /// The metadata of the JSONL session file at `path`, or `None` when `path` is
 /// not a readable session file.
 fn session_metadata_at(path: &Path) -> Option<tom_harness::session::jsonl::JsonlSessionMetadata> {
-    use tom_harness::session::jsonl::codec::{metadata_from_header, parse_header};
     use std::io::BufRead;
+    use tom_harness::session::jsonl::codec::{metadata_from_header, parse_header};
 
     let file = std::fs::File::open(path).ok()?;
     let modified_at = file
@@ -3397,6 +3433,31 @@ mod runtime_session_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shell_path_becomes_a_posix_interpreter_invocation() {
+        let shell = shell_override_for("/usr/bin/zsh");
+        assert_eq!(shell.program, std::path::PathBuf::from("/usr/bin/zsh"));
+        // The command is handed over as one argv entry, so a POSIX shell needs
+        // `-c` or it would read the command as a script path.
+        assert_eq!(shell.args, vec!["-c".to_string()]);
+    }
+
+    #[test]
+    fn shell_path_recognizes_powershell() {
+        for path in [
+            "/usr/bin/pwsh",
+            "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+        ] {
+            let shell = shell_override_for(path);
+            assert!(
+                shell.args.iter().any(|arg| arg == "-NonInteractive"),
+                "{path} should get PowerShell flags, got {:?}",
+                shell.args
+            );
+            assert!(!shell.args.iter().any(|arg| arg == "-c"), "{path}");
+        }
+    }
 
     #[tokio::test]
     async fn unauthenticated_packages_are_not_reintroduced_as_legacy_adapters() {
@@ -4676,8 +4737,8 @@ mod tests {
     }
     #[tokio::test]
     async fn reload_shutdown_joins_all_handlers_even_after_veto() {
-        use tom_plugin_sdk::{EventTag, StablePluginEvent};
         use std::sync::atomic::AtomicUsize;
+        use tom_plugin_sdk::{EventTag, StablePluginEvent};
         static CONTEXTS: tom_plugin_sdk::handles::ToolHandles<Arc<AtomicUsize>> =
             tom_plugin_sdk::handles::ToolHandles::new();
         struct ContextOwner(usize);
