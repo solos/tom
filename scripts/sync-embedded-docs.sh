@@ -22,6 +22,7 @@ docs/tom-tool/agent-project.md:agent-project.md \
 docs/tom-tool/architecture.md:architecture.md \
 docs/tom-tool/extension-authoring.md:extension-authoring.md \
 docs/tom-tool/rust-debugging.md:rust-debugging.md \
+docs/tom-tool/package-authoring.md:package-authoring.md \
 docs/tom-tool/user-guide.md:user-guide.md \
 CHANGELOG.md:changelog.md"
 

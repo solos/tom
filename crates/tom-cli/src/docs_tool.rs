@@ -32,13 +32,25 @@ static DOCS: &[DocPage] = &[
         topic: "authoring",
         description: "Rust cdylib 扩展开发最佳实践：统一 C ABI 入口、工具生命周期、事件处理器、资源发现、tom dev 开发、tom-extcore 复用边界与发布检查清单",
         content: include_str!("../embedded-docs/extension-authoring.md"),
-        aliases: &["package-authoring", "extension-authoring", "create-package", "create-extension"],
+        aliases: &["extension-authoring", "create-package", "create-extension"],
     },
     DocPage {
         topic: "guide",
         description: "完整使用手册：安装、模型、CLI、.tom 资源、Rust 扩展、SDK、排错和发布",
         content: include_str!("../embedded-docs/user-guide.md"),
-        aliases: &["manual", "user-guide", "cli", "quickstart", "package", "packages", "extension", "extensions"],
+        aliases: &["manual", "user-guide", "cli", "quickstart", "extension", "extensions"],
+    },
+    DocPage {
+        topic: "packages",
+        description: "资源包作者指南：从 npm / git 分发 skills、prompts、themes 与 extensions，清单格式、完整性校验、所有权标记与资源优先级",
+        content: include_str!("../embedded-docs/package-authoring.md"),
+        aliases: &[
+            "package-authoring",
+            "resource-package",
+            "npm-package",
+            "distribute",
+            "package-add",
+        ],
     },
     DocPage {
         topic: "overview",
@@ -340,10 +352,21 @@ mod tests {
 
     #[tokio::test]
     async fn package_and_extension_aliases_resolve() {
-        for topic in ["package", "packages", "extension", "extensions", "PACKAGES"] {
+        // `extension` aliases stay on the guide; `packages` is now its own page
+        // (resource packages), which is the more useful answer for that word.
+        for topic in ["extension", "extensions", "EXTENSIONS"] {
             let output = execute(serde_json::json!({"topic": topic, "query": "packages"})).await;
             assert!(output.starts_with("# tom docs: guide"));
             assert!(output.contains("Matches for"));
+        }
+        for topic in ["packages", "PACKAGES", "package-authoring", "npm-package"] {
+            let output = execute(serde_json::json!({"topic": topic})).await;
+            assert!(
+                output.starts_with("# tom docs: packages"),
+                "topic {topic} resolved to: {}",
+                output.lines().next().unwrap_or_default()
+            );
+            assert!(output.contains("tom-package.json"));
         }
     }
 
