@@ -348,6 +348,11 @@ Both stdio and streamable HTTP servers are supported. User servers live in
 `~/.tom/agent/mcp.json`, project servers in `.tom/mcp.json` (read only in a
 trusted project). See [`docs/mcp/README.md`](docs/mcp/README.md).
 
+A server with many tools can be kept out of the declared set with
+`"exposure": "deferred"`; the model then reaches its tools through
+`tool_search`, which ranks them and loads the matches for the next request.
+That keeps a ten-tool filesystem server from costing context on every turn.
+
 `tom` is a client, not a host: resources, prompts, sampling and elicitation are
 out of scope.
 

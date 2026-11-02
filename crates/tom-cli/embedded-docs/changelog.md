@@ -13,6 +13,76 @@ from; the matching [GitHub Release](../../releases) carries the same notes.
 
 ### Added
 
+- *(settings)* wire the four settings that parsed but were previously ignored:
+  `shellPath` now selects the `bash` tool's interpreter (and the RPC `bash`
+  command's, so both agree; a PowerShell path gets PowerShell's flags instead of
+  silently failing every command), `branchSummary.reserveTokens`/`skipPrompt`
+  now reach branch summarization, `treeFilterMode` picks what `/tree` opens
+  with, and `externalEditor` joins the editor resolution chain ahead of
+  `$VISUAL`/`$EDITOR`.
+- *(harness)* navigation with `summarize` now generates and persists a
+  `branch_summary` entry before moving the lane. The flag used to be discarded,
+  so `summary_entry` was always `None` and `generate_branch_summary` had no
+  production caller. A failed summary still completes the navigation.
+- *(rpc)* serve the full pi RPC command set: `steer`, `follow_up`,
+  `set_steering_mode`, `set_follow_up_mode`, `set_auto_compaction`,
+  `set_auto_retry`, `abort_retry`, `cycle_model`, `cycle_thinking_level`,
+  `new_session`, `switch_session`, `clone`, `fork`, `get_fork_messages`,
+  `get_tree`, `get_entries`, `get_last_assistant_text`, `get_session_stats`,
+  `set_session_name`, `bash`, `abort_bash` and `export_html`. The ready frame now
+  reports `parityComplete: true`; the claim is computed from a
+  `PI_BASELINE_COMMANDS` list that a unit test keeps in sync with the served
+  set, so it cannot drift. See `docs/rpc-pi-parity.md`.
+- *(mcp)* new `tom-mcp` crate: a Model Context Protocol client with stdio and
+  streamable-HTTP transports, tool discovery, and `mcp__<server>__<tool>`
+  adapters that plug into the agent as ordinary tools. Configured through
+  `~/.tom/agent/mcp.json` and (in a trusted project) `.tom/mcp.json`; managed
+  with `tom mcp list|status|add|remove`. A project entry without its own
+  transport overrides only `enabled`/`description`/`timeout` of the inherited
+  user-level server, so one server can be switched off per project.
+- *(ai)* implement three more provider protocols, so a catalog entry never
+  panics on an unimplemented API:
+  **`azure-openai-responses`** reuses the Responses implementation (transcript,
+  tools, SSE) and adds only what Azure changes — endpoint resolution from
+  `AZURE_OPENAI_BASE_URL`/`AZURE_OPENAI_RESOURCE_NAME`, the deployment name as
+  the wire `model` (with the catalog id kept for sessions and cost),
+  `api-version` in the query, and `/openai/v1` path normalization that drops a
+  stale `api-version` copied from the portal. **`google-generative-ai`** and
+  **`google-vertex`** share one `generateContent` implementation: `contents`/
+  `parts` conversion, `functionDeclarations` (with `const` → single-value
+  `enum`, since Gemini ignores `const`), thought-signature replay limited to the
+  model that produced it, `thinkingLevel` for Gemini 3+/Gemma 4 versus
+  `thinkingBudget` for 2.x, and a deterministic tool-call id for models that
+  send none. Vertex differs only in auth (bearer token) and path
+  (`publishers/google`, regional host from the location). AWS Bedrock is
+  deliberately **not** implemented: SigV4 and a credential chain would add a
+  signer and an IMDS client to the core, so it stays a package concern.
+- *(cli)* resource packages: `tom package add <source>` installs a bundle of
+  skills, prompts, themes and extensions from **npm or git without a Rust
+  toolchain** (`remove`, `adopt`, `list-resources` accompany it). A package is
+  described by `tom-package.json` or a `tom`/`pi` key in `package.json` (so an
+  existing pi package installs unchanged), and falls back to the conventional
+  `extensions/`/`skills/`/`prompts/`/`themes/` directories with no manifest at
+  all. npm installs verify the registry's `dist.integrity` (`sha512`/`sha256`) or
+  `shasum` before unpacking, stages into a temporary sibling and renames only on
+  success, and resolve ranges locally instead of trusting `latest`; git installs
+  shallow-clone and record the resolved commit. Every installed tree carries a
+  `.tom-managed.json` marker, so `remove` refuses a directory tom did not create
+  and an install over one is an error unless `--force`: the owner of a
+  hand-written `.tom/packages/<name>` can no longer lose it. `adopt` is the
+  migration path for such a directory."
+- *(tools)* `tool_search`: on-demand tool retrieval instead of declaring every
+  tool on every request. A BM25 ranker (pi's tokenizer, stop words and stemmer)
+  searches name, description and the parameter schema's property names and
+  descriptions; a query that *is* a tool name ranks that tool first, because
+  length normalization otherwise favours a shorter description. Matches enter
+  the harness's active set and are recorded as an `active_tools_change` entry,
+  so a load survives `/tree`, resume and fork, and a `prepare_next_turn` hook
+  re-derives the declared set so the tool is callable on the **next request of
+  the same run**, not just the next prompt. `mcp.json` gains
+  `exposure: direct | deferred` per server (default `direct`: deferral trades a
+  search round trip for context, so it is opt-in); `tool_search` is registered
+  only when MCP contributed a tool, so a session without servers is unchanged.
 - *(cli)* discover model catalogs for `models.json` providers that omit `models`:
   OpenAI-compatible providers are read from `{baseUrl}/models` and Anthropic
   Messages from `{baseUrl}/v1/models`, then cached in

@@ -9,10 +9,31 @@
 
 | 需求 | 接入方式 |
 | --- | --- |
-| 已支持的 Anthropic Messages、OpenAI Chat Completions / Responses 协议，只改端点、模型和 key | 优先使用 `models.json`，无需新 package |
+| 已支持的 Anthropic Messages、OpenAI Chat Completions / Responses、Azure OpenAI Responses、Google Gemini / Vertex 协议，只改端点、模型和 key | 优先使用 `models.json`，无需新 package |
 | 提供可安装的模型目录、供应商默认值、专属请求头、匿名策略或管理命令 | 独立 provider package，优先复用已有协议 |
 | 新协议或现有协议无法表达的请求 / 响应差异 | package 实现 `tom_ai::Provider`，经统一 ABI 接入 |
 | 浏览器登录、device-code、token 刷新或撤销 | 另外注册 OAuth provider；推理与认证是两项独立能力 |
+
+### 核心内建的协议
+
+| `api` | 认证 | 说明 |
+| --- | --- | --- |
+| `anthropic-messages` | `x-api-key` / bearer | |
+| `openai-completions` | bearer | |
+| `openai-responses` | bearer | |
+| `azure-openai-responses` | bearer | 部署名 + `api-version`，端点按请求解析 |
+| `google-generative-ai` | `x-goog-api-key` | `generateContent` 流式 |
+| `google-vertex` | bearer | 同一 wire 格式，`publishers/google` 路径 + project/location |
+| `google-vertex`（ADC） | — | **不支持**自动获取 ADC；请把 token 放进 `GOOGLE_VERTEX_ACCESS_TOKEN` |
+
+Azure 的三个差异分别处理：终结点（`AZURE_OPENAI_BASE_URL` / `AZURE_OPENAI_RESOURCE_NAME`，
+或在 `models.json` 里写 `baseUrl`）、部署名（`AZURE_OPENAI_DEPLOYMENT_NAME_MAP`，
+`模型id=部署名` 逗号分隔）、`api-version`（`AZURE_OPENAI_API_VERSION`，默认 `v1`）。
+Azure 主机上的根路径会归一化为 `/openai/v1`，并从 URL 里去掉旧的 `api-version`，
+避免同一个版本参数被发两次。
+
+`google-vertex` 的区域主机由 location 推出（`europe-west4-aiplatform.googleapis.com`）；
+`global` 与自定义 `baseUrl` 使用共享端点。
 
 ### `openai-completions` 的 `baseUrl`
 

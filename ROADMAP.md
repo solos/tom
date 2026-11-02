@@ -22,6 +22,9 @@ What is solid today:
 - A Model Context Protocol client (`tom-mcp`): stdio and streamable-HTTP
   servers, tool discovery, and automatic `mcp__<server>__<tool>` injection, so
   the existing MCP tool ecosystem is usable without a plugin.
+- `tool_search`: BM25 retrieval over tools that are not declared to the model,
+  with the matches loaded durably, so a large MCP server no longer spends
+  context on every request.
 - Durable JSONL sessions with branching, compaction and crash recovery.
 - A stable `#[repr(C)]` plugin ABI with a dynamic loader, lifecycle events and
   veto support.
@@ -53,12 +56,17 @@ winget) follow from the same release artifacts.
 The provider boundary is in place; the gaps are adapters. Shipped today:
 Anthropic Messages, OpenAI Chat Completions, OpenAI Responses, plus
 OpenAI-compatible gateways including OpenRouter, DeepSeek and llama.cpp.
-Candidates next, in rough order of demand: Google Gemini, AWS Bedrock, Azure
-OpenAI, and a first-class Ollama preset.
+Also implemented: Azure OpenAI (Responses dialect) and Google Gemini, both the
+Generative Language API and Vertex AI. AWS Bedrock is the remaining candidate; it
+needs SigV4 signing and a credential chain (profile, IMDS, IRSA), which is a
+package-sized dependency rather than a protocol adapter, so it is not planned for
+the core.
 
 ### 4. Extension ecosystem
 
-The ABI and loader work; the ecosystem is thin. Concretely:
+The ABI and loader work, and resource packages now let an author ship skills,
+prompts, themes and extensions from npm or git without a Rust toolchain
+(`tom package add`). What is still thin:
 
 - Keep [`tom/tom-package`](https://github.com/tom/tom-package) building
   green against the current ABI and publish a compatibility table per ABI
@@ -67,6 +75,8 @@ The ABI and loader work; the ecosystem is thin. Concretely:
   command, not a copied example.
 - Settle the Node/TypeScript bridge question: either finish it as a supported
   path or mark it explicitly experimental and stop advertising it.
+- Give a resource package's `extensions/` the same version check `tom install`
+  applies, so a package cannot install a cdylib built against an older ABI.
 
 ### 5. Startup initialisation (measured)
 

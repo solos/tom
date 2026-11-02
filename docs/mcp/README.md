@@ -60,6 +60,7 @@ tom mcp list
 | `cwd` | stdio 工作目录；相对路径按项目根解析，`~/` 表示家目录 |
 | `url` / `headers` | HTTP 端点与额外请求头，头值支持 `${VAR}` |
 | `description` | 一句话说明，会出现在工具描述前缀里，便于区分同名工具 |
+| `exposure` | `direct`（默认）或 `deferred`。`deferred` 把该服务器的工具留在注册表里但**不声明给模型**，只能由 `tool_search` 检索加载 |
 | `timeout` | 单次请求超时秒数，默认 60 |
 | `enabled` | `false` 保留条目但不连接 |
 | `type` | 可选，必须是 `stdio` / `http` / `streamable-http`。`sse` 被拒绝 |
@@ -73,6 +74,42 @@ tom mcp list
 ```json
 { "mcpServers": { "internal-tools": { "enabled": false } } }
 ```
+
+## 工具膨胀：`exposure` 与 `tool_search`
+
+每连接一个服务器，声明给模型的工具就多几条。工具数量到几十条时，全量声明会
+占掉可观的上下文，并降低模型的选择准确率——这是 MCP 落地后立刻会遇到的问题。
+
+`tool_search` 是一个按需检索工具：它用 BM25 在**未声明**的工具元数据（名称、
+描述、参数 schema 的属性名与说明）上排序，把命中的工具加入 active 集合。加载结果
+会写成一条 `active_tools_change` 条目，因此在 `/tree`、续接会话与 fork 之后仍然
+生效；同一次运行的下一轮请求就会声明它们（不是等到下一次 prompt）。
+
+`exposure` 决定一个服务器的工具走哪条路：
+
+| 值 | 行为 | 适用 |
+| --- | --- | --- |
+| `direct`（默认） | 和其它内置工具一样声明给模型 | 小工具集、常用 |
+| `deferred` | 注册但不声明，只能由 `tool_search` 加载 | 大服务器（filesystem 有 10+ 工具） |
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "exposure": "deferred"
+    }
+  }
+}
+```
+
+默认是 `direct`，因为延迟声明是**权衡而非白赚**：deferred 工具在可用之前要额外花
+一次 `tool_search` 调用。工具少的服务器直接声明更划算，所以延迟是按服务器逐个
+开启的。项目级条目可以只写 `"exposure": "deferred"` 覆盖用户级同名服务器。
+
+只要 MCP 贡献了任何工具，`tool_search` 就会注册并激活；没有 MCP 时会话的工具集
+不变，不多花 token。
 
 ## 工具命名
 
@@ -103,3 +140,5 @@ MCP 工具在扩展工具之后合并，因此同名时扩展工具被 MCP 工�
 - 不支持 SSE 传输（仅 stdio 与 streamable HTTP）。
 - 不支持 resources、prompts、sampling、elicitation、roots。
 - 不支持 OAuth 登录流程；需要认证的 HTTP 服务器请通过 `headers` 传令牌。
+- `tool_search` 的检索是词法的（BM25），没有同义词表：`tickets` 找不到
+  `issues`。它也不做 embedding，因此没有索引需要随服务器连接/断开而重建。
