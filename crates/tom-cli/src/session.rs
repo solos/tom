@@ -2452,7 +2452,10 @@ where
 }
 
 /// Build the `Session` facade for the chosen selection.
-async fn build_session(selection: &SessionSelection, cwd: &str) -> Result<Session, BuildError> {
+pub(crate) async fn build_session(
+    selection: &SessionSelection,
+    cwd: &str,
+) -> Result<Session, BuildError> {
     match selection {
         SessionSelection::Ephemeral => Ok(ephemeral_session()),
         SessionSelection::New { dir, .. } => {

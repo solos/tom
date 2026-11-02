@@ -2,9 +2,9 @@
 use super::tests::{rpc_test_harness, start_test_rpc};
 use super::*;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use tom_ai::providers::faux::{faux_assistant_message, FauxProvider, FauxScript, FauxStep};
 use serde_json::{json, Value};
 use tokio::io::AsyncWriteExt;
+use tom_ai::providers::faux::{faux_assistant_message, FauxProvider, FauxScript, FauxStep};
 
 async fn send(client: &mut tokio::io::DuplexStream, value: Value) {
     let mut bytes = serde_json::to_vec(&value).unwrap();
@@ -352,8 +352,8 @@ async fn production_file_io_write_and_edit_use_the_same_client_backend() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn production_validation_is_responsive_and_root_abort_retains_worker_cleanup() {
     use crate::rpc::prompt_content::validation_test_hook::{Gate, ReleaseOnDrop};
-    use tom_tools::file_io::{FileIOErrorCode, FileIOOperation, FileIOReadRange};
     use std::time::Duration;
+    use tom_tools::file_io::{FileIOErrorCode, FileIOOperation, FileIOReadRange};
     for abort_root in [false, true] {
         let id = if abort_root {
             "validation-root-abort"

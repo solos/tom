@@ -27,7 +27,9 @@ mod external_transport {
                     crate::args::RpcMessageUpdates::default(),
                     tokio::io::BufReader::with_capacity(127, input.as_slice()),
                     output,
-                ),
+            crate::args::Args::default(),
+            std::path::PathBuf::from("."),
+),
             )
             .await
             .expect("invalid input must terminate the actual dispatcher");
@@ -52,7 +54,9 @@ mod external_transport {
                     &b"\n \t\r\n{\"id\":1,\"type\":\"ping\"}\r\n{\"id\":2,\"type\":\"ping\"}"[..],
                 ),
                 output.clone(),
-            ),
+            crate::args::Args::default(),
+            std::path::PathBuf::from("."),
+),
         )
         .await
         .expect("healthy EOF must complete");
@@ -163,7 +167,9 @@ mod external_transport {
                 crate::args::RpcMessageUpdates::default(),
                 tokio::io::BufReader::new(input),
                 writer,
-            )
+            crate::args::Args::default(),
+            std::path::PathBuf::from("."),
+)
             .await
         });
         (

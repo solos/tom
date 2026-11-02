@@ -598,6 +598,8 @@ async fn run_inner() -> i32 {
                         reload_context.ui_dialog.clone(),
                         oauth_snapshot,
                         parsed.rpc_message_updates,
+                        parsed.clone(),
+                        cwd.clone(),
                     )
                     .await
                 };

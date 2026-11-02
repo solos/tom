@@ -24,6 +24,15 @@ from; the matching [GitHub Release](../../releases) carries the same notes.
   `branch_summary` entry before moving the lane. The flag used to be discarded,
   so `summary_entry` was always `None` and `generate_branch_summary` had no
   production caller. A failed summary still completes the navigation.
+- *(rpc)* serve the full pi RPC command set: `steer`, `follow_up`,
+  `set_steering_mode`, `set_follow_up_mode`, `set_auto_compaction`,
+  `set_auto_retry`, `abort_retry`, `cycle_model`, `cycle_thinking_level`,
+  `new_session`, `switch_session`, `clone`, `fork`, `get_fork_messages`,
+  `get_tree`, `get_entries`, `get_last_assistant_text`, `get_session_stats`,
+  `set_session_name`, `bash`, `abort_bash` and `export_html`. The ready frame now
+  reports `parityComplete: true`; the claim is computed from a
+  `PI_BASELINE_COMMANDS` list that a unit test keeps in sync with the served
+  set, so it cannot drift. See `docs/rpc-pi-parity.md`.
 - *(mcp)* new `tom-mcp` crate: a Model Context Protocol client with stdio and
   streamable-HTTP transports, tool discovery, and `mcp__<server>__<tool>`
   adapters that plug into the agent as ordinary tools. Configured through
