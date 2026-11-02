@@ -56,4 +56,10 @@ impl McpSession {
     pub fn is_empty(&self) -> bool {
         self.loaded.tools().is_empty()
     }
+
+    /// The tools that should be declared to the model rather than left for
+    /// `tool_search` to load, per each server's `exposure`.
+    pub fn direct_tool_names(&self, tool_search_available: bool) -> Vec<String> {
+        self.loaded.direct_tool_names(tool_search_available)
+    }
 }

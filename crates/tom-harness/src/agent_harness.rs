@@ -1953,6 +1953,92 @@ impl AgentHarness {
         })
     }
 
+    /// Refresh the declared tool set for the next turn.
+    ///
+    /// `tool_search` loads tools *mid-turn*, but a provider request is built from
+    /// the context the loop was handed when the run started. Without this hook the
+    /// matches would only become callable on the next `prompt`, and a model that
+    /// searched for a tool and then called it in the same turn would get "unknown
+    /// tool" — which is exactly what a single-turn agent does.
+    ///
+    /// The rebuild is from the live snapshot (never from the tools the turn was
+    /// handed), so it also picks up a tool loaded by an earlier step of the same
+    /// turn and drops nothing: the declared set is always `active ∩ registry`.
+    fn tool_load_hook(
+        &self,
+        next: AfterToolResults,
+        signal: CancellationToken,
+    ) -> AfterToolResults {
+        let harness = self.clone();
+        Arc::new(move |ctx: ShouldStopAfterTurnContext<'_>| {
+            let harness = harness.clone();
+            let next = Arc::clone(&next);
+            let signal = signal.clone();
+            let assistant = ctx.message.clone();
+            let tool_results = ctx.tool_results.to_vec();
+            let new_messages = ctx.new_messages.to_vec();
+            let mut context = ctx.context.clone();
+            Box::pin(async move {
+                // Run the inner hook first: it may deliver context or compact, and
+                // the tool refresh only replaces the tools field of whatever
+                // context it produced.
+                let mut changed = false;
+                if let Some(update) = next(ShouldStopAfterTurnContext {
+                    message: &assistant,
+                    tool_results: &tool_results,
+                    new_messages: &new_messages,
+                    context: &context,
+                })
+                .await
+                {
+                    if let Some(replacement) = update.context {
+                        context = replacement;
+                        changed = true;
+                    }
+                }
+                // Another hook that replaced the context wholesale keeps whatever
+                // tool list it chose; only the loader's additions are ours.
+                let snap = match harness.snapshot_config() {
+                    Ok(snap) => snap,
+                    Err(_) => {
+                        return changed.then(|| tom_agent::AgentLoopTurnUpdate {
+                            context: Some(context),
+                            ..Default::default()
+                        })
+                    }
+                };
+                let tools = harness.active_tools_with_search(&snap.tools, &snap.active_tool_names);
+                let names = |tools: &[Arc<dyn AgentTool>]| -> Vec<String> {
+                    tools
+                        .iter()
+                        .map(|tool| tool.schema().name.clone())
+                        .collect()
+                };
+                let declared = names(&context.tools);
+                let refresh = names(&tools);
+                // Only report a change when the set really differs, so an ordinary
+                // turn does not pay for a context rebuild.
+                if declared.len() == refresh.len() && declared.iter().all(|n| refresh.contains(n)) {
+                    return changed.then(|| tom_agent::AgentLoopTurnUpdate {
+                        context: Some(context),
+                        ..Default::default()
+                    });
+                }
+                if signal.is_cancelled() {
+                    return changed.then(|| tom_agent::AgentLoopTurnUpdate {
+                        context: Some(context),
+                        ..Default::default()
+                    });
+                }
+                context.tools = tools;
+                Some(tom_agent::AgentLoopTurnUpdate {
+                    context: Some(context),
+                    ..Default::default()
+                })
+            })
+        })
+    }
+
     /// `appendCustomEntry(customType, data?)` — persist a custom entry on the
     /// lane. Mirrors TS `AgentHarness.appendCustomEntry`.
     pub async fn append_custom_entry(
@@ -1964,6 +2050,94 @@ impl AgentHarness {
             .append_custom_entry(custom_type, data)
             .await
             .map_err(session_to_harness_err)
+    }
+
+    /// The registered tools that are not declared to the model: the candidates
+    /// `tool_search` ranks.
+    ///
+    /// Live rather than snapshotted: a tool loaded earlier in the same batch is
+    /// already gone from this list, so a second search cannot re-report it. The
+    /// harness itself is always excluded — loading the loader is meaningless.
+    pub fn deferred_tools(&self) -> Vec<tom_tools::DeferredTool> {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner
+            .tools
+            .iter()
+            .filter(|tool| {
+                let name = &tool.tool.schema().name;
+                name != tom_tools::TOOL_SEARCH_TOOL_NAME && !inner.active_tool_names.contains(name)
+            })
+            .map(|tool| {
+                let schema = tool.tool.schema();
+                tom_tools::DeferredTool::new(schema.name.clone(), schema.description.clone())
+                    .with_parameters(schema.parameters.as_value().clone())
+            })
+            .collect()
+    }
+
+    /// Whether this harness has anything for `tool_search` to find.
+    pub fn has_deferred_tools(&self) -> bool {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.tools.iter().any(|tool| {
+            let name = &tool.tool.schema().name;
+            name != tom_tools::TOOL_SEARCH_TOOL_NAME && !inner.active_tool_names.contains(name)
+        })
+    }
+
+    /// Admit tools into the active set and record the change on the lane.
+    ///
+    /// The load has to be durable for the same reason every other tool change
+    /// is: the declared set is derived per request, so an in-memory-only load
+    /// would vanish at the next `/tree`, resume or fork and the model would keep
+    /// calling a tool nobody declares. One `active_tools_change` entry per load
+    /// is what makes the matches stay declared on that branch.
+    pub async fn load_tools(&self, names: &[String]) -> HarnessResult<Vec<String>> {
+        let active = {
+            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            if inner.closed {
+                return Err(HarnessError::closed());
+            }
+            let mut added = Vec::new();
+            for name in names {
+                if inner
+                    .active_tool_names
+                    .iter()
+                    .any(|existing| existing == name)
+                {
+                    continue;
+                }
+                // A tool that is not registered cannot be declared; skipping it
+                // keeps the recorded set a subset of the registry.
+                if !inner
+                    .tools
+                    .iter()
+                    .any(|tool| &tool.tool.schema().name == name)
+                {
+                    continue;
+                }
+                inner.active_tool_names.push(name.clone());
+                added.push(name.clone());
+            }
+            if added.is_empty() {
+                return Ok(added);
+            }
+            (inner.active_tool_names.clone(), added)
+        };
+        let (active_names, added) = active;
+        let entry = ProvisionedEntry {
+            id: self.next_entry_id(),
+            kind: ProvisionedKind::ActiveTools {
+                active_tool_names: active_names,
+            },
+        };
+        // The tools are already live; report a persistence failure instead of
+        // claiming the change was recorded, so the model learns the load will
+        // not survive a branch switch.
+        self.session
+            .append_entry(entry, &self.lane)
+            .await
+            .map_err(session_to_harness_err)?;
+        Ok(added)
     }
 
     /// `getName()` — the session name. Mirrors TS `AgentHarness.getName`.
@@ -3744,6 +3918,10 @@ impl AgentHarness {
 
     /// Build the agent tools vec, filtered by `active_tool_names`. An empty
     /// `active_tool_names` means "all tools active" (mirrors TS default).
+    ///
+    /// Deferred tools have to be *registered* to be loadable later, but they
+    /// must not be declared to the model, so they stay out of the active set
+    /// until [`AgentHarness::load_tools`] admits them.
     fn active_tools(tools: &[HarnessTool], active: &[String]) -> Vec<Arc<dyn AgentTool>> {
         if active.is_empty() {
             return tools
@@ -3756,6 +3934,47 @@ impl AgentHarness {
             .filter(|t| active.contains(&t.tool.schema().name))
             .map(|t| crate::image_tool::wrap(Arc::clone(&t.tool)))
             .collect()
+    }
+
+    /// Tools for this harness's tool-search surface.
+    ///
+    /// A `tool_search` tool is only projected when there is something to search
+    /// (a deferred tool exists), so a session with no MCP servers and no deferral
+    /// is unchanged: no extra tool, no extra declaration, no extra token.
+    fn active_tools_with_search(
+        &self,
+        tools: &[HarnessTool],
+        active: &[String],
+    ) -> Vec<Arc<dyn AgentTool>> {
+        let mut declared = Self::active_tools(tools, active);
+        // A registry without `tool_search` (an embedded harness that manages its
+        // own tool set) is left alone: deferral is a host decision.
+        let has_search = tools
+            .iter()
+            .any(|tool| tool.tool.schema().name == tom_tools::TOOL_SEARCH_TOOL_NAME);
+        if !has_search {
+            return declared;
+        }
+        let deferred = self.deferred_tools();
+        if deferred.is_empty() {
+            return declared;
+        }
+        // The loader is only *added* here: a harness that already lists it in
+        // `active_tool_names` (the normal case) must not get it twice, since a
+        // duplicated declaration is a broken request for some providers.
+        let already_declared = declared
+            .iter()
+            .any(|tool| tool.schema().name == tom_tools::TOOL_SEARCH_TOOL_NAME);
+        if already_declared {
+            return declared;
+        }
+        if let Some(search) = tools
+            .iter()
+            .find(|tool| tool.tool.schema().name == tom_tools::TOOL_SEARCH_TOOL_NAME)
+        {
+            declared.push(crate::image_tool::wrap(Arc::clone(&search.tool)));
+        }
+        declared
     }
 
     /// Compose the system prompt: base prompt + skills listing. The base prompt
@@ -4607,7 +4826,7 @@ impl AgentHarness {
             &snap.resources,
             &snap.active_tool_names,
         );
-        let tools = Self::active_tools(&snap.tools, &snap.active_tool_names);
+        let tools = self.active_tools_with_search(&snap.tools, &snap.active_tool_names);
 
         let mut agent_context = AgentContext {
             system_prompt,
@@ -4837,11 +5056,14 @@ impl AgentHarness {
             signal.clone(),
             Arc::clone(&context_write_error),
         ));
-        config.prepare_next_turn = Some(self.context_boundary_hook(
-            None,
-            Arc::clone(&settle_state),
+        config.prepare_next_turn = Some(self.tool_load_hook(
+            self.context_boundary_hook(
+                None,
+                Arc::clone(&settle_state),
+                signal.clone(),
+                Arc::clone(&context_write_error),
+            ),
             signal.clone(),
-            Arc::clone(&context_write_error),
         ));
 
         // Emitter: use the caller's override if one was supplied (e.g. the TUI

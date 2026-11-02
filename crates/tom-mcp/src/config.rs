@@ -66,6 +66,43 @@ pub struct ServerEntry {
     /// Per-request timeout in seconds. Defaults to [`DEFAULT_TIMEOUT_SECS`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u64>,
+
+    /// How this server's tools reach the model. `deferred` keeps them out of the
+    /// declared set until `tool_search` loads them, which is what keeps a large
+    /// server (a filesystem server is 10+ tools) from spending context on every
+    /// request. Default is `direct` — see [`Exposure::resolve`] for why deferral
+    /// is opt-in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exposure: Option<Exposure>,
+}
+
+/// How a server's tools are offered to the model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Exposure {
+    /// Declared to the model like a built-in tool.
+    Direct,
+    /// Registered but not declared; `tool_search` can load a match.
+    Deferred,
+}
+
+impl Exposure {
+    /// Effective exposure for a server: an explicit setting wins, otherwise
+    /// `direct`.
+    ///
+    /// `direct` is the default even when a `tool_search` tool exists, because
+    /// deferral is a *trade*, not a free win: a deferred tool costs its loader a
+    /// search call before the model can use it, which is a bad deal for the small
+    /// servers most users configure. A server with ten or more tools (a
+    /// filesystem or GitHub server) is where it pays off, and that is a decision
+    /// the user makes per server with `"exposure": "deferred"`.
+    pub fn resolve(setting: Option<Exposure>, _tool_search_available: bool) -> Exposure {
+        setting.unwrap_or(Exposure::Direct)
+    }
+
+    pub fn is_deferred(self) -> bool {
+        matches!(self, Exposure::Deferred)
+    }
 }
 
 fn default_enabled() -> bool {
@@ -90,6 +127,9 @@ pub struct ResolvedServer {
     pub description: Option<String>,
     pub timeout: std::time::Duration,
     pub source: ConfigSource,
+    /// The entry's own `exposure`, before [`Exposure::resolve`] fills in the
+    /// host-dependent default.
+    pub exposure: Option<Exposure>,
 }
 
 impl ResolvedServer {
@@ -231,6 +271,9 @@ impl ServerEntry {
         if other.timeout.is_some() {
             self.timeout = other.timeout;
         }
+        if other.exposure.is_some() {
+            self.exposure = other.exposure;
+        }
     }
 
     fn resolve(
@@ -300,6 +343,7 @@ impl ServerEntry {
             description: self.description.clone(),
             timeout: std::time::Duration::from_secs(self.timeout.unwrap_or(DEFAULT_TIMEOUT_SECS)),
             source,
+            exposure: self.exposure,
         })
     }
 }
@@ -397,6 +441,66 @@ mod tests {
 
         let docs = servers.iter().find(|s| s.name == "docs").unwrap();
         assert!(matches!(docs.transport, Transport::Http { .. }));
+    }
+
+    #[test]
+    fn exposure_defaults_to_direct_and_can_be_deferred_per_server() {
+        let config = McpConfig::parse(
+            r#"{
+              "mcpServers": {
+                "small": { "command": "tiny-mcp" },
+                "huge": { "command": "huge-mcp", "exposure": "deferred" }
+              }
+            }"#,
+        )
+        .expect("parse");
+        let cwd = tempdir();
+        let (servers, issues) = config.resolve(ConfigSource::User, cwd.path());
+        assert!(issues.is_empty(), "{issues:?}");
+
+        let small = servers.iter().find(|s| s.name == "small").unwrap();
+        assert_eq!(small.exposure, None, "unset stays unset at parse time");
+        assert!(
+            !Exposure::resolve(small.exposure, true).is_deferred(),
+            "deferral is opt-in, even when tool_search exists"
+        );
+
+        let huge = servers.iter().find(|s| s.name == "huge").unwrap();
+        assert_eq!(huge.exposure, Some(Exposure::Deferred));
+        assert!(Exposure::resolve(huge.exposure, true).is_deferred());
+        // Without a loader, an explicit `deferred` still resolves to deferred —
+        // the host warns rather than silently declaring the tools either way.
+        assert!(Exposure::resolve(huge.exposure, false).is_deferred());
+    }
+
+    #[test]
+    fn an_unknown_exposure_is_a_load_error() {
+        // `deny_unknown_fields` plus the enum keep a typo from silently meaning
+        // `direct`, which would defeat the point of opting into deferral.
+        let error = McpConfig::parse(r#"{"mcpServers":{"x":{"command":"c","exposure":"maybe"}}}"#)
+            .expect_err("unknown exposure");
+        assert!(error.to_string().contains("unknown variant"), "{error}");
+    }
+
+    #[test]
+    fn a_partial_override_can_flip_exposure() {
+        // Same rule as `enabled`: a project entry with no transport is a delta,
+        // so it must be able to defer a server defined at user level.
+        let mut config =
+            McpConfig::parse(r#"{"mcpServers":{"shared":{"command":"mcp"}}}"#).expect("parse");
+        config.merge(
+            McpConfig::parse(r#"{"mcpServers":{"shared":{"exposure":"deferred"}}}"#)
+                .expect("parse"),
+        );
+        let cwd = tempdir();
+        let (servers, issues) = config.resolve(ConfigSource::Project, cwd.path());
+        assert!(issues.is_empty(), "{issues:?}");
+        assert_eq!(servers.len(), 1);
+        assert_eq!(servers[0].exposure, Some(Exposure::Deferred));
+        assert!(
+            matches!(servers[0].transport, Transport::Stdio { .. }),
+            "the inherited transport survives the override"
+        );
     }
 
     #[test]

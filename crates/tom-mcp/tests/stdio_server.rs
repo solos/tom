@@ -78,6 +78,7 @@ for /l %%i in (1,1,100000) do (
         description: Some("test server".into()),
         timeout: Duration::from_secs(10),
         source: ConfigSource::User,
+        exposure: None,
     }
 }
 
@@ -123,6 +124,7 @@ async fn connect_all_reports_a_missing_command_without_failing_others() {
         description: None,
         timeout: Duration::from_secs(5),
         source: ConfigSource::User,
+        exposure: None,
     };
 
     let loaded = tom_mcp::connect_all(&[good, broken]).await;
@@ -207,6 +209,7 @@ done
         description: None,
         timeout: Duration::from_secs(5),
         source: ConfigSource::User,
+        exposure: None,
     };
 
     let error = McpClient::connect(server).await.expect_err("must fail");
@@ -250,6 +253,7 @@ done
         description: None,
         timeout: Duration::from_secs(5),
         source: ConfigSource::User,
+        exposure: None,
     };
 
     let client = McpClient::connect(server).await.expect("connect");

@@ -22,6 +22,7 @@ pub mod os_env;
 pub mod output_decode;
 pub mod path_utils;
 pub mod shell_output;
+pub mod tool_search;
 pub mod truncate;
 
 pub mod utils {
@@ -34,6 +35,12 @@ pub use tools::{
     create_bash_tool, create_edit_tool, create_find_tool, create_grep_tool, create_ls_tool,
     create_powershell_tool, create_read_tool, create_write_tool, BashExecution, BashPrepare,
     BashToolOptions, ExecutionToolContext, ProcessedImage, ReadImageProcessor, ReadToolOptions,
+};
+pub use tool_search::{
+    create_tool_search_tool, create_tool_search_tool_with, create_tool_search_document,
+    tokenize, Bm25Ranker, DeferredTool, DeferredToolSource, ToolSearchDocument, ToolSearchInput,
+    ToolSearchMatch,
+    ToolSearchTool, DEFAULT_TOOL_SEARCH_LIMIT, TOOL_SEARCH_DESCRIPTION, TOOL_SEARCH_TOOL_NAME,
 };
 
 pub use env::{

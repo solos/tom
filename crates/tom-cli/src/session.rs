@@ -35,6 +35,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, OnceLock};
 
+use tom_agent::agent_tool::AgentTool;
 use tom_ai::Provider;
 use tom_harness::agent_harness::AgentHarness;
 use tom_harness::context_files::{format_project_context, load_project_context_files};
@@ -284,6 +285,7 @@ fn builtin_tool_snippet(name: &str) -> Option<&'static str> {
         "find" => "Find files by glob pattern",
         "ls" => "List directory contents",
         "powershell" => "Execute PowerShell commands on Windows",
+        "tool_search" => "Search tools that are not loaded yet and load the matches",
         _ => return None,
     })
 }
@@ -596,19 +598,41 @@ pub async fn build_prepared(
     } else {
         crate::mcp::load_for_session(cwd, project_trusted).await
     };
-    if let Some(mcp) = &mcp_session {
-        if args.verbose {
+    // Tool-search wiring. `tool_search` is registered whenever MCP contributed a
+    // tool: with a server connected, the tool count is no longer the eight
+    // built-ins, and declaring all of them on every request spends context and
+    // hurts selection. A server marked `"exposure": "deferred"` contributes its
+    // tools to the registry but not to the active set, so the model only sees
+    // them after `tool_search` loads a match. `direct` stays the default: deferral
+    // trades a search round trip for context, which only pays off for big servers.
+    let (tool_search, deferred_mcp_tools) = merge_mcp_tools(&mut tools, mcp_session.as_ref(), args);
+    if args.verbose {
+        if let Some(mcp) = &mcp_session {
             for line in mcp.summary_lines() {
                 eprintln!("mcp: {line}");
             }
+            if !deferred_mcp_tools.is_empty() {
+                eprintln!(
+                    "mcp: {} tool(s) deferred behind tool_search",
+                    deferred_mcp_tools.len()
+                );
+            }
         }
+    }
+    if let Some(mcp) = &mcp_session {
         for failure in mcp.failures() {
             eprintln!("warning: mcp: {failure}");
         }
-        merge_mcp_tools(&mut tools, mcp, args);
     }
 
-    let active = filter_active_tool_names(active_tool_names(&tools, args), args);
+    // Deferred tools stay registered but out of the declared set; `tool_search`
+    // is the only way in, so it is active whenever a deferred tool exists.
+    let mut active = filter_active_tool_names(active_tool_names(&tools, args), args);
+    active.retain(|name| !deferred_mcp_tools.iter().any(|deferred| deferred == name));
+    if let Some(tool_search) = &tool_search {
+        tools.push(HarnessTool::new(Arc::clone(tool_search)));
+        active.push(tom_tools::TOOL_SEARCH_TOOL_NAME.to_string());
+    }
 
     // ---- Session storage ----
     // The root is the one `prepare_extensions` froze at startup, never a fresh
@@ -1059,6 +1083,11 @@ pub async fn build_prepared(
                 &harness_cell,
                 Arc::new(h.clone()),
             );
+            // Same late binding for `tool_search`: the tool was built with the
+            // other tools, but loading is a harness operation.
+            if tool_search.is_some() {
+                tool_search_cell_handle().set_harness(&h);
+            }
             h
         }
         Err(e) => return Err(BuildError::HarnessCreate(e.to_string())),
@@ -1820,8 +1849,28 @@ where
         &effective_args,
         &ctx.tool_context,
     );
+    // MCP tools are rebuilt from the live connections, not reconnected: the
+    // session guard is held in the reload context precisely so a reload does not
+    // kill every stdio child. Skipping this re-merge dropped every MCP tool from
+    // the harness on `/reload` while the servers stayed alive, so the model lost
+    // the tools and the connection was wasted.
+    let (tool_search, deferred_mcp_tools) =
+        merge_mcp_tools(&mut tools, ctx.mcp.as_deref(), &effective_args);
+    if tool_search.is_some() {
+        tool_search_cell_handle().set_harness(harness);
+    }
     let mut active = active_tool_names(&tools, &effective_args);
     active = filter_active_tool_names(active, &effective_args);
+    // A reloaded registry must keep the declared arm of the split: the tools a
+    // session loaded through `tool_search` are back in `active_tool_names`
+    // (persisted as an `active_tools_change` entry), so they stay declared, but a
+    // tool that was never loaded must not become declared just because the
+    // registry was rebuilt.
+    active.retain(|name| !deferred_mcp_tools.iter().any(|deferred| deferred == name));
+    if let Some(tool_search) = &tool_search {
+        tools.push(HarnessTool::new(Arc::clone(tool_search)));
+        active.push(tom_tools::TOOL_SEARCH_TOOL_NAME.to_string());
+    }
     let prompt_tools = active.clone();
     let prompt_metadata = extension_tool_prompt_metadata(&extension_session);
     let prior_reasoning_replayed = tom_ai::model::prior_reasoning_is_replayed(&ctx.resolved_model);
@@ -2257,17 +2306,36 @@ fn merge_extension_tools(
     }
 }
 
-/// Merge MCP tools into the tool set. Same-name collision replaces, matching
-/// the extension-merge rule, and the CLI tool policy still applies.
+/// Merge MCP tools into the tool set and decide which of them are declared.
+///
+/// Same-name collision replaces, matching the extension-merge rule, and the CLI
+/// tool policy still applies. Tools of a `deferred` server are registered but
+/// returned in the deferred list instead of the active set: the harness declares
+/// only active tools, so a deferred tool is reachable solely through
+/// `tool_search`.
+///
+/// The returned `tool_search` tool is `None` when MCP contributed nothing — a
+/// session without servers keeps its original tool set and pays no extra token.
 fn merge_mcp_tools(
     tools: &mut Vec<HarnessTool>,
-    session: &crate::mcp_session::McpSession,
+    session: Option<&crate::mcp_session::McpSession>,
     args: &Args,
-) {
+) -> (Option<Arc<dyn AgentTool>>, Vec<String>) {
+    let Some(session) = session else {
+        return (None, Vec::new());
+    };
+    let direct: std::collections::BTreeSet<String> =
+        session.direct_tool_names(true).into_iter().collect();
+    let mut deferred = Vec::new();
+    let mut any = false;
     for tool in session.tools() {
         let name = tool.schema().name.clone();
         if !tool_name_allowed(&name, args) {
             continue;
+        }
+        any = true;
+        if !direct.contains(&name) {
+            deferred.push(name.clone());
         }
         let harness_tool = HarnessTool::new(tool);
         match tools.iter_mut().find(|t| t.tool.schema().name == name) {
@@ -2275,6 +2343,23 @@ fn merge_mcp_tools(
             None => tools.push(harness_tool),
         }
     }
+    (any.then(tool_search_cell), deferred)
+}
+
+/// The process's late-bound `tool_search` tool, created on first use.
+///
+/// The tool outlives any one harness (it names the harness weakly), so a session
+/// switch or a `/reload` reuses one instance. Holding it here also keeps
+/// `merge_mcp_tools` free of the harness, which does not exist yet at that point.
+pub(crate) fn tool_search_cell() -> Arc<dyn AgentTool> {
+    Arc::clone(&tool_search_cell_handle()) as Arc<dyn AgentTool>
+}
+
+/// The concrete cell, for the late harness binding.
+pub(crate) fn tool_search_cell_handle() -> Arc<tom_harness::tool_search::ToolSearchToolCell> {
+    static CELL: std::sync::OnceLock<Arc<tom_harness::tool_search::ToolSearchToolCell>> =
+        std::sync::OnceLock::new();
+    Arc::clone(CELL.get_or_init(tom_harness::tool_search::ToolSearchToolCell::new))
 }
 
 /// Build the tool list per `--tools`/`--exclude-tools`/`--no-tools`/

@@ -28,5 +28,6 @@ pub mod settle;
 pub mod skills;
 pub mod system_prompt;
 pub mod tool_recovery;
+pub mod tool_search;
 pub mod types;
 pub mod watcher;

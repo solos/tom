@@ -38,7 +38,8 @@ pub use client::{
     render_inventory, McpClient, McpTool, McpToolOutcome, PROTOCOL_VERSION,
 };
 pub use config::{
-    ConfigIssue, ConfigSource, McpConfig, ResolvedServer, ServerEntry, Transport as ServerTransport,
+    ConfigIssue, ConfigSource, Exposure, McpConfig, ResolvedServer, ServerEntry,
+    Transport as ServerTransport,
 };
 pub use error::McpError;
 pub use tools::create_mcp_tool;
@@ -117,6 +118,27 @@ impl LoadedServers {
             out.push(create_mcp_tool(tool.clone(), client.clone()));
         }
         out
+    }
+
+    /// Which of these tools should be declared to the model rather than left for
+    /// `tool_search` to load.
+    ///
+    /// Needed before the tools are built so the host can split the registry into
+    /// "declared" and "deferred" in one pass: `exposure` is per server, and the
+    /// default depends on whether a `tool_search` tool exists at all.
+    pub fn direct_tool_names(&self, tool_search_available: bool) -> Vec<String> {
+        self.tools
+            .iter()
+            .filter(|tool| {
+                let setting = self
+                    .clients
+                    .iter()
+                    .find(|client| client.name() == tool.server)
+                    .and_then(|client| client.exposure());
+                !crate::config::Exposure::resolve(setting, tool_search_available).is_deferred()
+            })
+            .map(|tool| tool.exposed_name.clone())
+            .collect()
     }
 }
 

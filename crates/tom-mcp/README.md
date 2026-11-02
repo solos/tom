@@ -71,13 +71,24 @@ be copied verbatim:
 ```
 
 `command` selects stdio and `url` selects streamable HTTP. Also supported:
-`args`, `env`, `cwd`, `headers`, `description`, `timeout` (seconds, default 60)
-and `enabled: false`. `${VAR}` in `env`, `headers` and `cwd` expands from the
-process environment; a leading `~/` names the home directory.
+`args`, `env`, `cwd`, `headers`, `description`, `timeout` (seconds, default 60),
+`exposure` (`direct` or `deferred`) and `enabled: false`. `${VAR}` in `env`,
+`headers` and `cwd` expands from the process environment; a leading `~/` names
+the home directory.
 
 A project entry that carries no transport of its own is a *partial override*: it
-changes only `enabled`, `description` and `timeout` of the inherited user-level
-server, which is how one server is switched off inside a single project.
+changes only `enabled`, `description`, `timeout` and `exposure` of the inherited
+user-level server, which is how one server is switched off (or made deferred)
+inside a single project.
+
+### Deferred tools
+
+`"exposure": "deferred"` marks a server whose tools should not be declared to
+the model up front. `LoadedServers::direct_tool_names` reports which are
+declared; the rest are reachable only through a `tool_search` tool
+([`tom-tools::tool_search`](https://crates.io/crates/tom-tools)). The default is
+`direct`, because deferring is a trade: the model must spend a search call before
+it can use the tool. Deferral pays off for servers with many tools.
 
 ## Design notes
 

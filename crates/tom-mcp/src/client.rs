@@ -97,6 +97,11 @@ impl McpClient {
         self.server.transport.kind()
     }
 
+    /// The server's configured `exposure`, if it set one.
+    pub fn exposure(&self) -> Option<crate::config::Exposure> {
+        self.server.exposure
+    }
+
     fn timeout(&self) -> Duration {
         self.server.timeout
     }
