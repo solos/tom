@@ -6,6 +6,12 @@
 # Locally-created pi sessions (from running the `pi` binary against this repo)
 .pi/
 
+# Upstream pi checkout kept for feature comparison (nested git repo, ~150 MiB).
+pi/
+
+# rpi agent session data
+.rpi/
+
 # Release/publish run logs (stdouts captured during `task publish` etc.)
 *-publish.log
 task-*.log
@@ -30,3 +36,6 @@ target/*
 website/.tom/*
 .git/tom-release-helper.exe
 publish-*.log
+
+# Local working notes, not part of the repository
+/todo.md
