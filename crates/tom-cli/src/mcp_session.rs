@@ -63,3 +63,42 @@ impl McpSession {
         self.loaded.direct_tool_names(tool_search_available)
     }
 }
+
+/// The namespaces a `codemode` script sees, one per connected server.
+///
+/// A namespace is what a server's tools share: the `mcp__<server>__` prefix, the
+/// server's configured description, and its instructions. `codemode` groups the
+/// declarations under it and `describeNamespace()` reports it, so a script can ask
+/// "what does this server offer" without listing every tool by name.
+pub fn codemode_namespaces(
+    session: Option<&McpSession>,
+) -> Vec<tom_tools::codemode::CodemodeNamespace> {
+    let Some(session) = session else {
+        return Vec::new();
+    };
+    session
+        .loaded
+        .tools_by_server()
+        .into_iter()
+        .filter(|(_, tools)| !tools.is_empty())
+        .map(|(server, _)| tom_tools::codemode::CodemodeNamespace {
+            name: format!("mcp__{server}"),
+            aliases: vec![server.to_string()],
+            description: session
+                .loaded
+                .clients()
+                .iter()
+                .find(|client| client.name() == server)
+                .and_then(|client| client.description())
+                .map(str::to_string),
+            instructions: session
+                .loaded
+                .clients()
+                .iter()
+                .find(|client| client.name() == server)
+                .and_then(|client| client.instructions())
+                .map(str::to_string),
+            prefix: format!("mcp__{server}__"),
+        })
+        .collect()
+}

@@ -42,6 +42,10 @@ pub struct McpClient {
     server: ResolvedServer,
     transport: Transport,
     initialized: AtomicBool,
+    /// The `instructions` the server sent with its handshake, if any. They are
+    /// usage guidance a model cannot infer from the tool list ("call search
+    /// before get"), so `codemode`'s `describeNamespace()` reports them.
+    instructions: std::sync::OnceLock<String>,
 }
 
 impl std::fmt::Debug for McpClient {
@@ -80,6 +84,7 @@ impl McpClient {
             server,
             transport,
             initialized: AtomicBool::new(false),
+            instructions: std::sync::OnceLock::new(),
         });
         client.initialize().await?;
         Ok(client)
@@ -95,6 +100,11 @@ impl McpClient {
 
     pub fn transport_kind(&self) -> &'static str {
         self.server.transport.kind()
+    }
+
+    /// Usage guidance the server sent with its handshake.
+    pub fn instructions(&self) -> Option<&str> {
+        self.instructions.get().map(String::as_str)
     }
 
     /// The server's configured `exposure`, if it set one.
@@ -118,13 +128,21 @@ impl McpClient {
             "clientInfo": {"name": CLIENT_NAME, "version": CLIENT_VERSION},
         });
 
-        self.transport
+        let response = self
+            .transport
             .request("initialize", params, self.timeout())
             .await
             .map_err(|e| McpError::Initialize {
                 server: self.server.name.clone(),
                 message: e.to_string(),
             })?;
+        if let Some(instructions) = response
+            .get("instructions")
+            .and_then(Value::as_str)
+            .filter(|text| !text.trim().is_empty())
+        {
+            let _ = self.instructions.set(instructions.to_string());
+        }
 
         // `initialized` is a notification; some servers refuse `tools/list`
         // until they receive it.

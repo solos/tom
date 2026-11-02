@@ -13,6 +13,26 @@ from; the matching [GitHub Release](../../releases) carries the same notes.
 
 ### Added
 
+- *(codemode)* new `codemode` tool: the model writes JavaScript that runs in a
+  QuickJS sandbox whose only capability is calling injected tools. A script's
+  nested calls and their results never enter the context — only its own output
+  does — which is what makes a batch of 200 reads, or a search→edit chain, or a
+  filter over a large result one round trip instead of many. The sandbox has no
+  file system, network, timers or modules; its built-ins are frozen before the
+  script runs, the heap is capped (256 MiB), and a deadline plus the caller's
+  cancellation token stop a spinning script through QuickJS's interrupt handler.
+  Scripts see `tools.<name>`, `text`/`image`/`console`/`exit`,
+  `store`/`load`, `ALL_TOOLS`, `searchTools()`, `describeTool()` and
+  `describeNamespace()`, and may open with `// @options: {...}` for an output
+  budget and a deadline. Nested calls go through the **same** pipeline a
+  model-issued call does (`before_tool_call`/`after_tool_call`, validation,
+  permission gates), so a gate cannot be side-stepped by asking a script; the
+  callable set is the declared tools plus every deferred one, and
+  `store()` writes land on the session branch as `codemode-store` entries so
+  `/tree`, resume and fork each replay their own path. Settings:
+  `codemode.mode` (`on`/`only`) and `codemode.inlineBudget`. See
+  `docs/codemode/README.md`.
+
 - *(settings)* wire the four settings that parsed but were previously ignored:
   `shellPath` now selects the `bash` tool's interpreter (and the RPC `bash`
   command's, so both agree; a PowerShell path gets PowerShell's flags instead of

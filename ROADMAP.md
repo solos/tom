@@ -25,6 +25,11 @@ What is solid today:
 - `tool_search`: BM25 retrieval over tools that are not declared to the model,
   with the matches loaded durably, so a large MCP server no longer spends
   context on every request.
+- `codemode`: the model writes JavaScript that runs in a QuickJS sandbox whose
+  only capability is calling injected tools. Batch, chain, filter and branch
+  flows become one call instead of many, because nested results stay in the
+  script. Nested calls go through the same tool pipeline (hooks, validation,
+  permission gates) as model-issued calls.
 - Durable JSONL sessions with branching, compaction and crash recovery.
 - A stable `#[repr(C)]` plugin ABI with a dynamic loader, lifecycle events and
   veto support.

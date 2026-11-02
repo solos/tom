@@ -286,6 +286,7 @@ fn builtin_tool_snippet(name: &str) -> Option<&'static str> {
         "ls" => "List directory contents",
         "powershell" => "Execute PowerShell commands on Windows",
         "tool_search" => "Search tools that are not loaded yet and load the matches",
+        "codemode" => "Run JavaScript that calls tools (batch, chain and filter calls in one script)",
         _ => return None,
     })
 }
@@ -625,6 +626,37 @@ pub async fn build_prepared(
         }
     }
 
+    // ---- codemode ----
+    // Registered whenever the tool policy allows it, because its value is exactly
+    // the flows the built-in tools cannot express in one call: batch, chain,
+    // filter. `store`/`load` and the nested-call pipeline are harness operations,
+    // so the tool starts with an empty host and is bound right after
+    // `AgentHarness::create` (same late-binding shape as `tool_search`).
+    let codemode_settings = crate::settings::load_settings()
+        .ok()
+        .and_then(|settings| settings.codemode);
+    let codemode = tool_name_allowed(tom_tools::codemode::CODEMODE_TOOL_NAME, args).then(|| {
+        tom_tools::codemode::CodemodeToolImpl::with_options(
+            tom_tools::codemode::CodemodeToolOptions {
+                namespaces: crate::mcp_session::codemode_namespaces(mcp_session.as_ref()),
+                inline_budget: codemode_settings
+                    .as_ref()
+                    .and_then(|settings| settings.inline_budget)
+                    .unwrap_or(tom_tools::codemode::DEFAULT_CODEMODE_INLINE_BUDGET),
+                mode: match codemode_settings.as_ref().map(|settings| settings.mode()) {
+                    Some(crate::settings::CodemodeMode::Only) => {
+                        tom_tools::codemode::CodemodeMode::Only
+                    }
+                    _ => tom_tools::codemode::CodemodeMode::On,
+                },
+                ..Default::default()
+            },
+        )
+    });
+    if let Some(codemode) = &codemode {
+        tools.push(HarnessTool::new(Arc::clone(codemode) as Arc<dyn AgentTool>));
+    }
+
     // Deferred tools stay registered but out of the declared set; `tool_search`
     // is the only way in, so it is active whenever a deferred tool exists.
     let mut active = filter_active_tool_names(active_tool_names(&tools, args), args);
@@ -632,6 +664,13 @@ pub async fn build_prepared(
     if let Some(tool_search) = &tool_search {
         tools.push(HarnessTool::new(Arc::clone(tool_search)));
         active.push(tom_tools::TOOL_SEARCH_TOOL_NAME.to_string());
+    }
+    if codemode.is_some()
+        && !active
+            .iter()
+            .any(|name| name == tom_tools::codemode::CODEMODE_TOOL_NAME)
+    {
+        active.push(tom_tools::codemode::CODEMODE_TOOL_NAME.to_string());
     }
 
     // ---- Session storage ----
@@ -1087,6 +1126,14 @@ pub async fn build_prepared(
             // other tools, but loading is a harness operation.
             if tool_search.is_some() {
                 tool_search_cell_handle().set_harness(&h);
+            }
+            // codemode: nested calls and `store()` are harness operations.
+            if let Some(codemode) = &codemode {
+                codemode.set_host(tom_harness::codemode::CodemodeBinding::new(
+                    &h,
+                    crate::mcp_session::codemode_namespaces(mcp_session.as_ref()),
+                ));
+                codemode.set_store(tom_harness::codemode::SessionCodemodeStore::new(&h));
             }
             h
         }

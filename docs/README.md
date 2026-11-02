@@ -14,6 +14,7 @@
 | 消息、流式响应与工具执行 | [Agent Loop 链路](agent/loop-walkthrough.md) |
 | 长会话与上下文压缩 | [上下文压缩](agent/context-compaction.md) |
 | MCP 服务器（工具注入） | [MCP 服务器](mcp/README.md) |
+| 沙箱内写 JS 调用工具（codemode） | [codemode](codemode/README.md) |
 | RPC 命令集与 pi 兼容性 | [pi 兼容 RPC 命令](rpc-pi-parity.md) |
 | Rust 动态库扩展与 ABI | [扩展开发](extensions/authoring.md) |
 | 启动、会话与关闭事件 | [扩展生命周期](extensions/lifecycle.md) |

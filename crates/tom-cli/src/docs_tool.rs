@@ -53,6 +53,12 @@ static DOCS: &[DocPage] = &[
         ],
     },
     DocPage {
+        topic: "codemode",
+        description: "codemode：在 QuickJS 沙箱里写 JavaScript 调用工具。脚本环境（tools/text/exit/store/searchTools）、工具调用走同一条管线、沙箱边界与结果格式",
+        content: include_str!("../embedded-docs/codemode.md"),
+        aliases: &["code-mode", "script", "sandbox", "javascript", "batch"],
+    },
+    DocPage {
         topic: "overview",
         description: "tom installation, built-in tools, configuration, extensions, and release basics",
         content: include_str!("../embedded-docs/README.md"),
@@ -104,7 +110,7 @@ impl DocsTool {
         Self {
             schema: Tool {
                 name: "docs".to_string(),
-                description: "Look up tom usage documentation. Omit topic (or use topic=list) to list topics; pass a topic such as guide, authoring, agent, debugging, architecture, or overview. Add query to find relevant sections. Use this before guessing tom commands, creating an agent project or extension, extension APIs, or .tom configuration.".to_string(),
+                description: "Look up tom usage documentation. Omit topic (or use topic=list) to list topics; pass a topic such as guide, authoring, codemode, agent, debugging, architecture, or overview. Add query to find relevant sections. Use this before guessing tom commands, creating an agent project or extension, extension APIs, or .tom configuration.".to_string(),
                 parameters: tom_ai::types::Schema::new(
                     serde_json::to_value(params).unwrap_or_default(),
                 ),

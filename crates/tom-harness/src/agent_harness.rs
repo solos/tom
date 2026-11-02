@@ -2075,6 +2075,126 @@ impl AgentHarness {
             .collect()
     }
 
+    /// The tools a nested call (`codemode`) may reach: the declared set plus every
+    /// deferred tool, minus the caller itself.
+    ///
+    /// A deferred tool belongs here on purpose. "Deferred" means *the model* has
+    /// not been given it, not that it is unavailable — a script naming it is
+    /// exactly the interaction deferral was traded for. The `codemode` tool is
+    /// excluded so a script cannot start another script.
+    pub fn active_tools_for_nested_calls(&self) -> HarnessResult<Vec<Arc<dyn AgentTool>>> {
+        let inner = self.inner.lock().unwrap_or_else(|error| error.into_inner());
+        if inner.closed {
+            return Err(HarnessError::closed());
+        }
+        let mut tools: Vec<Arc<dyn AgentTool>> = inner
+            .tools
+            .iter()
+            .filter(|tool| {
+                let name = &tool.tool.schema().name;
+                inner.active_tool_names.contains(name)
+            })
+            .map(|tool| crate::image_tool::wrap(Arc::clone(&tool.tool)))
+            .collect();
+        for tool in &inner.tools {
+            let name = &tool.tool.schema().name;
+            if inner.active_tool_names.contains(name) {
+                continue;
+            }
+            tools.push(crate::image_tool::wrap(Arc::clone(&tool.tool)));
+        }
+        tools.retain(|tool| tool.schema().name != tom_tools::codemode::CODEMODE_TOOL_NAME);
+        Ok(tools)
+    }
+
+    /// Run one nested tool call through the agent loop's pipeline.
+    ///
+    /// The hooks, the active tool set and the loop's validation are the ones an
+    /// ordinary call would meet — a permission gate cannot be side-stepped by
+    /// asking a script instead of the model.
+    pub async fn run_nested_tool(
+        &self,
+        name: &str,
+        args: JsonValue,
+        signal: CancellationToken,
+    ) -> Result<tom_tools::codemode::NestedToolOutcome, String> {
+        let snapshot = self.snapshot_config().map_err(|error| error.to_string())?;
+        let tools = self
+            .active_tools_for_nested_calls()
+            .map_err(|error| error.to_string())?;
+        if !tools.iter().any(|tool| tool.schema().name == name) {
+            return Err(format!("unknown tool `{name}`"));
+        }
+        // The caller's signal is the script's call token: it fires when the script
+        // stops waiting, and the run's own cancellation has to stop a nested call
+        // too, so the two are chained rather than one replacing the other.
+        let config = self.loop_config_for_nested_calls(&snapshot, signal);
+        let tool_call = tom_ai::types::ToolCall {
+            kind: tom_ai::types::ToolCallType,
+            id: format!("codemode/{name}"),
+            name: name.to_string(),
+            arguments: args,
+            thought_signature: None,
+            namespace: None,
+            recorded: None,
+        };
+        let mut assistant = tom_ai::types::AssistantMessage::empty(
+            snapshot.model.api,
+            snapshot.model.provider.clone(),
+            snapshot.model.id.clone(),
+            0,
+        );
+        assistant.content = vec![tom_ai::types::Content::ToolCall(tool_call.clone())];
+        assistant.stop_reason = tom_ai::types::StopReason::ToolUse;
+        let context = AgentContext {
+            system_prompt: String::new(),
+            messages: Vec::new(),
+            tools,
+        };
+        let (result, is_error) =
+            tom_agent::run_nested_tool_call(&context, &assistant, &tool_call, &config)
+                .await
+                .map_err(|error| error.to_string())?;
+        Ok(tom_tools::codemode::NestedToolOutcome {
+            structured: structured_details(&result),
+            content: result.content,
+            is_error,
+        })
+    }
+
+    /// The loop config a nested call runs under: the run's model, hooks and
+    /// cancellation, and nothing that would start another run.
+    fn loop_config_for_nested_calls(
+        &self,
+        snapshot: &ConfigSnapshot,
+        signal: CancellationToken,
+    ) -> AgentLoopConfig {
+        AgentLoopConfig {
+            model: snapshot.model.clone(),
+            convert_to_llm: Self::build_convert_to_llm(snapshot.to_provider_messages.clone()),
+            convert_to_llm_incremental: None,
+            transform_context: None,
+            get_api_key: None,
+            should_stop_after_turn: None,
+            prepare_next_turn: None,
+            after_tool_results: None,
+            get_steering_messages: None,
+            get_follow_up_messages: None,
+            before_tool_call: snapshot.before_tool_call.clone(),
+            after_tool_call: snapshot.after_tool_call.clone(),
+            tool_execution: snapshot.tool_execution.to_agent_mode(),
+            thinking_level: snapshot.thinking_level,
+            api_key: None,
+            timeout: snapshot.stream_options.timeout,
+            stream_idle_timeout: snapshot.stream_options.stream_idle_timeout,
+            max_retries: snapshot.stream_options.max_retries,
+            max_retry_delay: snapshot.stream_options.max_retry_delay,
+            cache_retention: snapshot.stream_options.cache_retention.unwrap_or_default(),
+            session_id: Some(self.session_id()),
+            signal,
+        }
+    }
+
     /// Whether this harness has anything for `tool_search` to find.
     pub fn has_deferred_tools(&self) -> bool {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -7876,5 +7996,16 @@ mod recorded_recovery_tests {
         .await;
 
         assert_eq!(executions.load(Ordering::SeqCst), 1);
+    }
+}
+
+/// A tool's structured value, when it reported one. `bash` is the case that
+/// matters: it returns `{ output, exitCode }` so a script can branch on a
+/// nonzero exit without parsing text.
+fn structured_details(result: &tom_agent::AgentToolResult) -> Option<JsonValue> {
+    match &result.details {
+        JsonValue::Null => None,
+        JsonValue::Object(map) if map.is_empty() => None,
+        other => Some(other.clone()),
     }
 }

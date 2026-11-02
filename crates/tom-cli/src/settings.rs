@@ -236,6 +236,11 @@ pub struct Settings {
     /// native `settings.json` is honored.
     #[serde(default)]
     pub terminal: Option<TerminalSettings>,
+    /// `codemode` settings: how the tool presents itself and how much room its
+    /// tool declarations may take. Absent leaves the defaults (mode `on`, 3000
+    /// estimated tokens).
+    #[serde(default)]
+    pub codemode: Option<CodemodeSettings>,
     /// How long idle pooled HTTP connections are kept before being closed.
     /// Accepts a millisecond number or the string `"disabled"`.
     /// `httpIdleTimeout`. tom surface: `httpIdleTimeout`.
@@ -250,6 +255,45 @@ pub struct Settings {
     /// built-in budgets.
     #[serde(default)]
     pub thinking_budgets: Option<tom_ai::ThinkingBudgets>,
+}
+
+/// `codemode` settings block (`codemode`).
+///
+/// `mode` decides how the tool presents itself while it is active: `on` keeps the
+/// declared tools as they are and lists only the tools a script can call that the
+/// model cannot (deferred ones); `only` lists every callable tool in the codemode
+/// description instead of declaring the direct ones. `inlineBudget` is an
+/// estimated-token budget for those declarations, so a large MCP server does not
+/// turn the description into a second tool list.
+#[derive(serde::Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CodemodeSettings {
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub inline_budget: Option<usize>,
+}
+
+impl CodemodeSettings {
+    /// `on` (default) or `only`; anything else is the default, because a typo in a
+    /// presentation setting must not disable the tool.
+    pub fn mode(&self) -> CodemodeMode {
+        match self.mode.as_deref() {
+            Some("only") => CodemodeMode::Only,
+            _ => CodemodeMode::On,
+        }
+    }
+}
+
+/// How `codemode` presents the callable tools.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CodemodeMode {
+    /// Keep direct tools declared; list only the tools a script can reach that the
+    /// model cannot.
+    #[default]
+    On,
+    /// List every script-callable tool in the codemode description.
+    Only,
 }
 
 /// upstream's `terminal` settings block (`TerminalSettings`). Only the fields

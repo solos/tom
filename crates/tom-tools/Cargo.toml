@@ -50,6 +50,12 @@ encoding_rs = "0.8"
 codepage = "0.1"
 regex = { workspace = true }
 globset = { workspace = true }
+# Code mode: the QuickJS VM that runs model-written scripts. `rquickjs` builds the
+# bundled QuickJS C sources with `cc` (the workspace already needs a C toolchain
+# for `rusqlite`/`ring`). Only `std` is on: the sandbox needs no loaders, no timers
+# and no async integration — the host-call loop drives the VM itself, which is
+# what makes cancellation and the deadline work.
+rquickjs = { version = "0.14", default-features = false, features = ["std"] }
 # Image processing (resize, convert, EXIF). Image's default features minus
 # `avif` and `rayon`: tom never encodes AVIF, and the AVIF encoder stack
 # (ravif -> rav1e -> aligned) needs Rust 1.85+ and stays in Cargo.lock even when

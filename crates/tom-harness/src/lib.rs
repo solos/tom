@@ -10,6 +10,7 @@
 
 pub mod agent_harness;
 pub mod cache_stats;
+pub mod codemode;
 pub mod compaction;
 pub mod context_files;
 pub mod diagnostics;
