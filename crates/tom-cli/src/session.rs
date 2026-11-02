@@ -1407,6 +1407,52 @@ pub async fn dispatch_session_event_async(
     }
 }
 
+/// A veto-capable dispatcher for session-lifecycle events, resolved on each call.
+///
+/// The RPC server and the TUI both need to ask extensions "may I switch the
+/// session?" without holding `ReloadContext` (which owns the harness-independent
+/// reload machinery). The cell is read per call, so a `/reload` that swaps the
+/// extension session is picked up without re-plumbing the caller.
+#[derive(Clone)]
+pub struct SessionEventGate {
+    extension_session: ExtensionSessionCell,
+}
+
+impl SessionEventGate {
+    pub fn new(extension_session: ExtensionSessionCell) -> Self {
+        Self { extension_session }
+    }
+
+    /// A gate with no extensions: every request is allowed.
+    pub fn none() -> Self {
+        Self::new(Arc::new(std::sync::Mutex::new(
+            tom_extensions::ExtensionSession::none(),
+        )))
+    }
+
+    /// Dispatch `tag` with a JSON payload and return `Some(reason)` when an
+    /// extension vetoed it.
+    ///
+    /// The payload is what makes the event useful: a handler deciding whether to
+    /// allow a switch needs to know `reason` (`new`/`resume`/`fork`) and the
+    /// target, not merely that *something* is happening.
+    pub async fn dispatch(
+        &self,
+        tag: tom_plugin_sdk::EventTag,
+        data: serde_json::Value,
+    ) -> Option<String> {
+        // Take the snapshot + keepalive and drop the cell's lock before awaiting:
+        // a handler may re-enter a reload path that locks the same cell.
+        let (snapshot, keepalive) = {
+            let session = self.extension_session.lock().unwrap();
+            (session.snapshot_arc(), session.keepalive())
+        };
+        let snapshot = snapshot?;
+        tom_extensions::dispatch_lifecycle_data_event(&snapshot, tag, &data.to_string(), keepalive)
+            .await
+    }
+}
+
 /// Join plugin teardown before unloading modules. A detached timed-out handler
 /// could still execute code in the old DLL, so it cannot safely permit a swap.
 async fn shutdown_extensions_for_reload(

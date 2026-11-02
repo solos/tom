@@ -2,7 +2,20 @@
 
 本文描述当前实现，替代旧的生命周期事件总线设计稿。事件标签和 ABI 定义见 [tom-plugin-sdk](../../crates/tom-plugin-sdk/src/lib.rs)，分发实现见 [translate.rs](../../crates/tom-extensions/src/translate.rs)。
 
-`BeforeTuiStart` 是 tom 特有的启动事件，在 TUI 初始化前调用。扩展可通过返回值否决启动。`SessionStart` 和 `SessionShutdown` 处理会话启动与关闭。生命周期事件使用无 payload 的 `EventEmpty`，不是旧设计稿中的 Rust 资源注入总线。
+`BeforeTuiStart` 是 tom 特有的启动事件，在 TUI 初始化前调用。扩展可通过返回值否决启动。`SessionStart` 和 `SessionShutdown` 处理会话启动与关闭。这两类事件使用无 payload 的 `EventEmpty`，不是旧设计稿中的 Rust 资源注入总线。
+
+`session_before_switch` 与 `session_before_fork` 是**带 payload 且可否决**的例外：
+
+| 事件 | payload | 触发点 |
+| --- | --- | --- |
+| `session_before_switch` | `{"reason":"new"\|"resume","targetSessionFile"?}` | `new_session`、`switch_session`，以及 TUI 的切换 |
+| `session_before_fork` | `{"entryId","position","reason":"fork"\|"clone"}` | `fork`、`clone` |
+
+handler 返回 `EVENT_HANDLER_ABORT` 即否决。否决发生在**构造新会话之前**，所以被拒绝的操作不创建文件、不改变当前会话。RPC 侧返回
+`{"cancelled": true, "reason": "extension `x` vetoed SessionBeforeSwitch"}`——这是「宿主拒绝了请求」，不是错误，因此 `success` 仍为 true。TUI 侧在对话中提示
+`Session switch declined: …` 并停在原会话。
+
+只有返回码 `EVENT_HANDLER_ABORT` 是否决；`0`（继续）和其它非零值（handler 报错）都不会阻止操作。
 
 宿主在 blocking 线程中调用 handler，并在 FFI 边界捕获 panic。分发使用以下超时预算：
 

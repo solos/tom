@@ -591,12 +591,19 @@ async fn run_inner() -> i32 {
                         let session = reload_context.extension_session.lock().unwrap();
                         session.snapshot_arc()
                     };
+                    // Extensions may veto a session switch mid-RPC; the gate
+                    // reads the live cell, so a `/reload` is picked up without
+                    // re-plumbing the loop.
+                    let session_events = crate::session::SessionEventGate::new(
+                        std::sync::Arc::clone(&reload_context.extension_session),
+                    );
                     crate::modes::rpc(
                         &harness,
                         Some(event_rx),
                         model_catalog,
                         reload_context.ui_dialog.clone(),
                         oauth_snapshot,
+                        session_events,
                         parsed.rpc_message_updates,
                         parsed.clone(),
                         cwd.clone(),

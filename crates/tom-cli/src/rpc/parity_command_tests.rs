@@ -22,6 +22,7 @@ mod parity_commands {
                 vec![],
                 tom_extensions::UiDialogMailbox::new(),
                 None,
+                crate::session::SessionEventGate::none(),
                 crate::args::RpcMessageUpdates::default(),
                 tokio::io::BufReader::new(frames.as_bytes()),
                 output.clone(),
@@ -310,6 +311,7 @@ mod parity_sessions {
                 vec![],
                 tom_extensions::UiDialogMailbox::new(),
                 None,
+                crate::session::SessionEventGate::none(),
                 crate::args::RpcMessageUpdates::default(),
                 tokio::io::BufReader::new(frames.as_bytes()),
                 output.clone(),
@@ -421,5 +423,91 @@ mod parity_sessions {
         )
         .await;
         assert_eq!(reply(&messages, 1)["success"], false, "{messages:?}");
+    }
+
+    /// The four session-replacing commands honor `session_before_switch` /
+    /// `session_before_fork`: the response must be `success: true` with
+    /// `cancelled: true` rather than an error, because the client asked for
+    /// something the host declined -- it did not fail.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_vetoed_session_replacement_reports_cancelled_not_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let (harness, args) = durable(dir.path()).await;
+        let before = harness.session().storage().metadata().id.clone();
+
+        // A gate whose extension refuses every switch and fork.
+        let gate = crate::session::SessionEventGate::new(std::sync::Arc::new(
+            std::sync::Mutex::new(denying_session_extension()),
+        ));
+
+        for frame in [
+            r#"{"id":1,"type":"new_session"}"#,
+            r#"{"id":1,"type":"clone"}"#,
+        ] {
+            let output = RpcOutput::default();
+            let code = tokio::time::timeout(
+                LIMIT,
+                rpc_with_io(
+                    &harness,
+                    None,
+                    vec![],
+                    tom_extensions::UiDialogMailbox::new(),
+                    None,
+                    gate.clone(),
+                    crate::args::RpcMessageUpdates::default(),
+                    tokio::io::BufReader::new(format!("{frame}\n").as_bytes()),
+                    output.clone(),
+                    args.clone(),
+                    std::path::PathBuf::from("."),
+                ),
+            )
+            .await
+            .expect("dispatcher must finish");
+            assert_eq!(code, 0);
+            let messages = output.messages();
+            let response = reply(&messages, 1);
+            assert_eq!(response["success"], true, "{messages:?}");
+            assert_eq!(
+                response["data"]["cancelled"], true,
+                "a veto must surface as cancelled: {messages:?}"
+            );
+            assert!(
+                response["data"]["reason"]
+                    .as_str()
+                    .is_some_and(|reason| reason.contains("vetoed")),
+                "the reason names the vetoing extension: {messages:?}"
+            );
+        }
+
+        // The session did not change: a veto costs nothing.
+        assert_eq!(
+            harness.session().storage().metadata().id,
+            before,
+            "a vetoed switch must leave the session in place"
+        );
+    }
+
+    /// Build an extension session with one handler that aborts every lifecycle
+    /// event it subscribes to.
+    fn denying_session_extension() -> tom_extensions::ExtensionSession {
+        extern "C" fn deny(
+            _ev: tom_plugin_sdk::StablePluginEvent,
+            _ud: *mut std::ffi::c_void,
+        ) -> i32 {
+            tom_plugin_sdk::EVENT_HANDLER_ABORT
+        }
+        let mut registry = tom_extensions::ExtensionRegistry::new();
+        for tag in [
+            tom_plugin_sdk::EventTag::SessionBeforeSwitch,
+            tom_plugin_sdk::EventTag::SessionBeforeFork,
+        ] {
+            registry.register_event_handler(
+                "guard-ext".to_string(),
+                tag,
+                deny,
+                std::ptr::null_mut(),
+            );
+        }
+        tom_extensions::ExtensionSession::for_registry(registry)
     }
 }

@@ -204,10 +204,24 @@ tom_plugin_sdk::export_plugin!(|api| {
 
 ### 生命周期 veto
 
-`BeforeTuiStart` 是带 veto 语义的 tom 专有钩子：第一个返回 `EVENT_HANDLER_ABORT`
-的处理器中止启动，CLI 以退出码 `3` 退出（用于"进入 TUI 前必须先建立外部连接"）。
+真正会**阻止操作**的 veto 有三个：
+
+| 事件 | 否决效果 |
+| --- | --- |
+| `BeforeTuiStart` | 中止启动，CLI 退出码 `3`（"进入 TUI 前必须先建立外部连接"） |
+| `SessionBeforeSwitch` | `new_session`/`switch_session` 与 TUI 切换被拒绝 |
+| `SessionBeforeFork` | `fork`/`clone` 被拒绝 |
+
+两个 session 事件的 veto 发生在**构造新会话之前**，因此被拒绝的请求不创建文件、
+不改变当前会话；RPC 侧返回 `{"cancelled": true, "reason": …}`（`success` 仍为
+true——是宿主拒绝了请求，不是失败）。
+
 `SessionStart`/`SessionShutdown` 的 veto 只是 advisory。分发带超时，慢处理器不会
 无限阻塞主流程。
+
+`SessionBeforeSwitch` 收到 `{"reason": "new"\|"resume", "targetSessionFile"?}`，
+`SessionBeforeFork` 收到 `{"entryId", "position", "reason": "fork"\|"clone"}`；
+用 `EventView::data_text()` 读取。细节见 [生命周期事件](lifecycle.md)。
 
 ### 资源发现
 

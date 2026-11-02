@@ -306,12 +306,14 @@ fn emit_agent_event(event: &AgentEvent) {
 /// client answers with `{"type":"ui_dialog_response","requestId","answer"}` (or
 /// `"cancelled":true`). A `prompt` runs in its own task so this loop keeps
 /// reading — that is what lets `abort` and dialog answers arrive mid-run.
+#[allow(clippy::too_many_arguments)]
 pub async fn rpc(
     harness: &AgentHarness,
     mut agent_events: Option<tokio::sync::broadcast::Receiver<AgentEvent>>,
     model_catalog: Vec<tom_ai::Model>,
     ui_dialog: tom_extensions::UiDialogMailbox,
     oauth_snapshot: Option<Arc<tom_extensions::RegistrySnapshot>>,
+    session_events: crate::session::SessionEventGate,
     message_updates: crate::args::RpcMessageUpdates,
     args: crate::args::Args,
     cwd: std::path::PathBuf,
@@ -322,6 +324,7 @@ pub async fn rpc(
         model_catalog,
         ui_dialog,
         oauth_snapshot,
+        session_events,
         message_updates,
         tokio::io::BufReader::new(tokio::io::stdin()),
         std::io::stdout(),
@@ -331,12 +334,14 @@ pub async fn rpc(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn rpc_with_io<R, W>(
     harness: &AgentHarness,
     mut agent_events: Option<tokio::sync::broadcast::Receiver<AgentEvent>>,
     model_catalog: Vec<tom_ai::Model>,
     ui_dialog: tom_extensions::UiDialogMailbox,
     oauth_snapshot: Option<Arc<tom_extensions::RegistrySnapshot>>,
+    session_events: crate::session::SessionEventGate,
     message_updates: crate::args::RpcMessageUpdates,
     mut input: R,
     output: W,
@@ -873,10 +878,12 @@ where
             "abort_retry" => rpc_abort_retry(harness).await,
             "cycle_thinking_level" => rpc_cycle_thinking_level(&lane).await,
             "cycle_model" => rpc_cycle_model(&lane, &model_catalog).await,
-            "new_session" => rpc_new_session(harness, &rpc_args, &rpc_cwd).await,
-            "switch_session" => rpc_switch_session(harness, &rpc_args, &rpc_cwd, &msg).await,
-            "clone" => rpc_clone_session(harness, &rpc_args, &rpc_cwd).await,
-            "fork" => rpc_fork_session(harness, &rpc_args, &rpc_cwd, &msg).await,
+            "new_session" => rpc_new_session(harness, &rpc_args, &rpc_cwd, &session_events).await,
+            "switch_session" => {
+                rpc_switch_session(harness, &rpc_args, &rpc_cwd, &msg, &session_events).await
+            }
+            "clone" => rpc_clone_session(harness, &rpc_args, &rpc_cwd, &session_events).await,
+            "fork" => rpc_fork_session(harness, &rpc_args, &rpc_cwd, &msg, &session_events).await,
             "get_fork_messages" => rpc_get_fork_messages(harness).await,
             "get_tree" => rpc_get_tree(harness).await,
             "get_entries" => rpc_get_entries(harness, &msg).await,
@@ -2586,7 +2593,19 @@ async fn rpc_new_session(
     harness: &AgentHarness,
     args: &crate::args::Args,
     cwd: &std::path::Path,
+    session_events: &crate::session::SessionEventGate,
 ) -> Result<serde_json::Value, String> {
+    // `session_before_switch` lets an extension refuse. The check runs BEFORE the
+    // new session is built: a veto must cost nothing and leave no orphan file.
+    if let Some(reason) = session_events
+        .dispatch(
+            tom_plugin_sdk::EventTag::SessionBeforeSwitch,
+            serde_json::json!({"reason": "new"}),
+        )
+        .await
+    {
+        return Ok(serde_json::json!({"cancelled": true, "reason": reason}));
+    }
     let dir = crate::session::configured_session_dir(args, cwd);
     let storage = crate::session::build_session(
         &crate::session::SessionSelection::New {
@@ -2609,7 +2628,22 @@ async fn rpc_clone_session(
     harness: &AgentHarness,
     args: &crate::args::Args,
     cwd: &std::path::Path,
+    session_events: &crate::session::SessionEventGate,
 ) -> Result<serde_json::Value, String> {
+    // A clone forks the current session, so it is a fork for event purposes.
+    if let Some(reason) = session_events
+        .dispatch(
+            tom_plugin_sdk::EventTag::SessionBeforeFork,
+            serde_json::json!({
+                "entryId": harness.lane("main").get_leaf_id().await.ok().flatten(),
+                "position": "at",
+                "reason": "clone",
+            }),
+        )
+        .await
+    {
+        return Ok(serde_json::json!({"cancelled": true, "reason": reason}));
+    }
     let dir = crate::session::configured_session_dir(args, cwd);
     let forked =
         crate::session::fork_session_storage(harness, &cwd.to_string_lossy(), &dir).await?;
@@ -2626,6 +2660,7 @@ async fn rpc_fork_session(
     args: &crate::args::Args,
     cwd: &std::path::Path,
     msg: &serde_json::Value,
+    session_events: &crate::session::SessionEventGate,
 ) -> Result<serde_json::Value, String> {
     let entry_id = msg
         .get("entryId")
@@ -2633,6 +2668,15 @@ async fn rpc_fork_session(
         .filter(|value| !value.is_empty())
         .ok_or("fork requires `entryId`")?;
 
+    if let Some(reason) = session_events
+        .dispatch(
+            tom_plugin_sdk::EventTag::SessionBeforeFork,
+            serde_json::json!({"entryId": entry_id, "position": "before", "reason": "fork"}),
+        )
+        .await
+    {
+        return Ok(serde_json::json!({"cancelled": true, "reason": reason}));
+    }
     let dir = crate::session::configured_session_dir(args, cwd);
     let forked =
         crate::session::fork_session_storage(harness, &cwd.to_string_lossy(), &dir).await?;
@@ -2921,12 +2965,22 @@ async fn rpc_switch_session(
     args: &crate::args::Args,
     cwd: &std::path::Path,
     msg: &serde_json::Value,
+    session_events: &crate::session::SessionEventGate,
 ) -> Result<serde_json::Value, String> {
     let path = msg
         .get("sessionPath")
         .and_then(serde_json::Value::as_str)
         .filter(|value| !value.is_empty())
         .ok_or("switch_session requires `sessionPath`")?;
+    if let Some(reason) = session_events
+        .dispatch(
+            tom_plugin_sdk::EventTag::SessionBeforeSwitch,
+            serde_json::json!({"reason": "resume", "targetSessionFile": path}),
+        )
+        .await
+    {
+        return Ok(serde_json::json!({"cancelled": true, "reason": reason}));
+    }
     let dir = crate::session::configured_session_dir(args, cwd);
     let session = crate::session::build_session(
         &crate::session::SessionSelection::ById {
@@ -3303,6 +3357,7 @@ mod tests {
                 vec![],
                 tom_extensions::UiDialogMailbox::new(),
                 None,
+                crate::session::SessionEventGate::none(),
                 crate::args::RpcMessageUpdates::default(),
                 tokio::io::BufReader::new(input.as_bytes()),
                 output.clone(),
@@ -3540,6 +3595,7 @@ mod tests {
                 vec![],
                 tom_extensions::UiDialogMailbox::new(),
                 None,
+                crate::session::SessionEventGate::none(),
                 crate::args::RpcMessageUpdates::default(),
                 tokio::io::BufReader::new(input.as_bytes()),
                 output.clone(),
@@ -3595,6 +3651,7 @@ mod tests {
                 vec![],
                 tom_extensions::UiDialogMailbox::new(),
                 Some(Arc::new(registry.snapshot())),
+                crate::session::SessionEventGate::none(),
                 crate::args::RpcMessageUpdates::default(),
                 tokio::io::BufReader::new(input.as_bytes()),
                 output.clone(),
@@ -3758,6 +3815,7 @@ mod tests {
                 vec![],
                 ui,
                 None,
+                crate::session::SessionEventGate::none(),
                 crate::args::RpcMessageUpdates::default(),
                 tokio::io::BufReader::new(input),
                 captured,
@@ -3959,6 +4017,7 @@ mod tests {
             vec![],
             tom_extensions::UiDialogMailbox::new(),
             None,
+            crate::session::SessionEventGate::none(),
             crate::args::RpcMessageUpdates::default(),
             tokio::io::BufReader::new(input.as_bytes()),
             output.clone(),
@@ -3991,6 +4050,7 @@ mod tests {
             vec![],
             tom_extensions::UiDialogMailbox::new(),
             None,
+            crate::session::SessionEventGate::none(),
             crate::args::RpcMessageUpdates::default(),
             tokio::io::BufReader::new(&input[..]),
             output.clone(),
@@ -4024,6 +4084,7 @@ mod tests {
             vec![],
             tom_extensions::UiDialogMailbox::new(),
             None,
+            crate::session::SessionEventGate::none(),
             crate::args::RpcMessageUpdates::default(),
             tokio::io::BufReader::new(&b"{\"type\":\"compact\",\"id\":1}\n"[..]),
             output.clone(),
@@ -4066,6 +4127,7 @@ mod tests {
             vec![],
             tom_extensions::UiDialogMailbox::new(),
             None,
+            crate::session::SessionEventGate::none(),
             crate::args::RpcMessageUpdates::default(),
             tokio::io::BufReader::new(&b""[..]),
             output.clone(),
@@ -4142,6 +4204,7 @@ mod tests {
                         vec![],
                         tom_extensions::UiDialogMailbox::new(),
                         None,
+                        crate::session::SessionEventGate::none(),
                         mode,
                         tokio::io::BufReader::new(input),
                         captured,
@@ -4270,6 +4333,7 @@ mod tests {
                         vec![],
                         tom_extensions::UiDialogMailbox::new(),
                         None,
+                        crate::session::SessionEventGate::none(),
                         mode,
                         tokio::io::BufReader::new(input.as_bytes()),
                         output.clone(),
@@ -4396,6 +4460,7 @@ mod tests {
             vec![],
             tom_extensions::UiDialogMailbox::new(),
             None,
+            crate::session::SessionEventGate::none(),
             crate::args::RpcMessageUpdates::default(),
             tokio::io::BufReader::new(
                 &b"{\"type\":\"prompt\",\"id\":1,\"message\":\"test\"}\n"[..],
@@ -4464,6 +4529,7 @@ mod tests {
                 vec![],
                 ui.clone(),
                 None,
+                crate::session::SessionEventGate::none(),
                 crate::args::RpcMessageUpdates::default(),
                 tokio::io::BufReader::new(input),
                 BrokenOutput,

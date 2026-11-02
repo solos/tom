@@ -71,6 +71,18 @@ from; the matching [GitHub Release](../../releases) carries the same notes.
   and an install over one is an error unless `--force`: the owner of a
   hand-written `.tom/packages/<name>` can no longer lose it. `adopt` is the
   migration path for such a directory."
+- *(extensions)* `session_before_switch` and `session_before_fork` now actually
+  fire, and a handler returning `EVENT_HANDLER_ABORT` refuses the operation. The
+  RPC commands `new_session`, `switch_session`, `clone` and `fork` used to return
+  a hardcoded `cancelled: false`; they now dispatch the event **before** building
+  the replacement session and answer `{"cancelled": true, "reason": …}` naming
+  the extension that declined, so a veto costs nothing and leaves no orphan
+  session file. Handlers receive a payload (`reason`, `sessionPath`, `entryId`)
+  through `tom_extensions::dispatch_lifecycle_data_event`, the data-carrying
+  counterpart of the existing no-payload lifecycle dispatch. The TUI's session
+  switch honors the same gate, because a veto that only covers RPC is bypassed by
+  using the other front end. No ABI change: the tag, the veto code and the data
+  payload were already on the wire — only the host never called them.
 - *(tools)* `tool_search`: on-demand tool retrieval instead of declaring every
   tool on every request. A BM25 ranker (pi's tokenizer, stop words and stemmer)
   searches name, description and the parameter schema's property names and
