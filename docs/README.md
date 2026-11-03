@@ -13,6 +13,7 @@
 | 创建 Agent、复用工具与嵌入 SDK | [项目结构](agent/project-structure.md) |
 | 消息、流式响应与工具执行 | [Agent Loop 链路](agent/loop-walkthrough.md) |
 | 长会话与上下文压缩 | [上下文压缩](agent/context-compaction.md) |
+| 工具输出预算、长任务 shell 会话与工具声明预算 | [工具预算与会话](agent/tool-budgets-and-sessions.md) |
 | MCP 服务器（工具注入） | [MCP 服务器](mcp/README.md) |
 | 沙箱内写 JS 调用工具（codemode） | [codemode](codemode/README.md) |
 | RPC 命令集与 pi 兼容性 | [pi 兼容 RPC 命令](rpc-pi-parity.md) |
