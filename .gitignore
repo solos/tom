@@ -9,6 +9,9 @@
 # Upstream pi checkout kept for feature comparison (nested git repo, ~150 MiB).
 pi/
 
+# Codex CLI checkout kept for feature comparison (nested tree, ~120 MiB).
+codex-rust-v0.166.0/
+
 # rpi agent session data
 .rpi/
 
@@ -39,3 +42,5 @@ publish-*.log
 
 # Local working notes, not part of the repository
 /todo.md
+/todo1.md
+/diff.md
