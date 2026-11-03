@@ -534,7 +534,10 @@ impl TranscriptView {
     }
 
     fn tool_end(&self, id: &str, name: &str, result: &Value, is_error: bool, width: usize) {
-        if matches!(name, "plan_mode_start" | "plan_mode_complete")
+        // `update_plan` is the model's own plan, rendered as a panel rather than
+        // a raw tool result: the plan is state the user should see persist, not
+        // a blob that scrolls away with the transcript.
+        if matches!(name, "plan_mode_start" | "plan_mode_complete" | "update_plan")
             && !is_error
             && update_plan_panel(&self.chat, result)
         {

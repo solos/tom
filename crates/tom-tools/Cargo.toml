@@ -77,6 +77,10 @@ windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.29", features = ["process", "signal"] }
+# Interactive shell sessions (`session_id`): a PTY is what makes progress bars,
+# `isatty`-gated colour and stdin-reading programs behave like a terminal. It is
+# opt-in per call, so the default path stays plain pipes.
+portable-pty = "0.9"
 
 [dev-dependencies]
 base64 = { workspace = true }

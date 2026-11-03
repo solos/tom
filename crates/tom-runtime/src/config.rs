@@ -1,7 +1,10 @@
 //! Host-supplied configuration and provider-scoped credentials. No file access.
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use tom_ai::{Api, InputModality, Model, ModelCost, StreamingProtocolCompat, ThinkingLevelMap};
+use tom_ai::{
+    Api, InputModality, Model, ModelCost, StreamingProtocolCompat, ThinkingLevelMap,
+    TruncationPolicy,
+};
 pub const DEFAULT_PROVIDER_ID: &str = "anthropic";
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
@@ -119,6 +122,10 @@ pub struct ModelDefinition {
     pub headers: Option<BTreeMap<String, String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compat: Option<serde_json::Value>,
+    /// How much tool output this model may receive per call. Omitted keeps the
+    /// historical 50 KB / 2000 line budget.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub truncation_policy: Option<TruncationPolicy>,
 }
 
 pub fn model_compat_warnings(config: &ModelsConfig) -> Vec<String> {
@@ -288,6 +295,7 @@ pub fn provider_to_models(
         m.thinking_level_map = def.thinking_level_map.clone();
         m.context_window = def.context_window.unwrap_or(0);
         m.max_tokens = def.max_tokens.unwrap_or(0);
+        m.truncation_policy = def.truncation_policy;
         if let Some(cost) = &def.cost {
             m.cost = cost.clone();
             m.cost_configured = true;

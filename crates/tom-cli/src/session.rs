@@ -51,7 +51,7 @@ use tom_harness::types::{
 #[cfg(windows)]
 use tom_tools::create_powershell_tool;
 use tom_tools::{
-    create_bash_tool, create_edit_tool, create_read_tool, create_write_tool, ExecutionToolContext,
+    create_edit_tool, create_read_tool, create_write_tool, ExecutionToolContext,
     MutationQueueRegistry, OsExecutionEnv,
 };
 
@@ -577,7 +577,7 @@ pub async fn build_prepared(
     let ctx =
         ExecutionToolContext::new(env_dyn.clone(), Some(mut_env)).with_file_io(file_io.clone());
 
-    let mut tools = build_tools(&ctx, args);
+    let mut tools = build_tools(&ctx, args, resolved.model.truncation_budget());
 
     // ---- Extensions (Part B2) ----
     // Load cdylib plugins from the resolved extension dirs, merge their tools
@@ -671,6 +671,23 @@ pub async fn build_prepared(
             .any(|name| name == tom_tools::codemode::CODEMODE_TOOL_NAME)
     {
         active.push(tom_tools::codemode::CODEMODE_TOOL_NAME.to_string());
+    }
+
+    // `get_context_remaining` is a harness-bound tool: the schema exists now so
+    // the declaration is stable from the first request, and the provider is
+    // attached right after `AgentHarness::create` (same shape as `tool_search`).
+    let context_remaining = tool_name_allowed(tom_tools::GET_CONTEXT_REMAINING_TOOL_NAME, args)
+        .then(tom_tools::create_get_context_remaining_tool);
+    if let Some(context_remaining) = &context_remaining {
+        tools.push(HarnessTool::new(
+            Arc::clone(context_remaining) as Arc<dyn AgentTool>
+        ));
+        if !active
+            .iter()
+            .any(|name| name == tom_tools::GET_CONTEXT_REMAINING_TOOL_NAME)
+        {
+            active.push(tom_tools::GET_CONTEXT_REMAINING_TOOL_NAME.to_string());
+        }
     }
 
     // ---- Session storage ----
@@ -1134,6 +1151,20 @@ pub async fn build_prepared(
                     crate::mcp_session::codemode_namespaces(mcp_session.as_ref()),
                 ));
                 codemode.set_store(tom_harness::codemode::SessionCodemodeStore::new(&h));
+            }
+            // `get_context_remaining` asks the harness for the live budget.
+            if let Some(context_remaining) = &context_remaining {
+                context_remaining.set_provider(Arc::new(
+                    tom_harness::context_budget::HarnessContextUsage::new(&h),
+                ));
+            }
+            // Declarations are re-sent with every request, so their size is a
+            // fixed per-turn cost paid before the model reads anything. A busy
+            // MCP server can push it into the thousands of tokens; the settings
+            // ceiling trims descriptions (never names or schemas) to keep it
+            // bounded.
+            if let Some(budget) = saved_settings.tools_budget_tokens {
+                h.set_tools_budget(Some(budget));
             }
             h
         }
@@ -1935,7 +1966,14 @@ where
     let mut_env: Arc<dyn tom_tools::MutatingEnv> = env.clone();
     let tool_ctx = tom_tools::ExecutionToolContext::new(env_dyn.clone(), Some(mut_env))
         .with_file_io(ctx.file_io.clone());
-    let mut tools = build_tools(&tool_ctx, &effective_args);
+    let mut tools = build_tools(
+        &tool_ctx,
+        &effective_args,
+        refreshed
+            .as_ref()
+            .map(|r| r.model.truncation_budget())
+            .unwrap_or_else(|| ctx.resolved_model.truncation_budget()),
+    );
     merge_extension_tools(
         &mut tools,
         &extension_session,
@@ -2462,6 +2500,13 @@ pub(crate) fn tool_search_cell_handle() -> Arc<tom_harness::tool_search::ToolSea
 /// forgotten `timeout` from hanging the run forever — the "卡住" report).
 /// `TOM_BASH_TIMEOUT` overrides; a model-supplied timeout always wins.
 pub fn bash_options() -> tom_tools::tools::bash::BashToolOptions {
+    bash_options_with(None)
+}
+
+/// Same as [`bash_options`] but with the active model's output budget attached.
+pub fn bash_options_with(
+    truncation_policy: Option<tom_ai::TruncationPolicy>,
+) -> tom_tools::tools::bash::BashToolOptions {
     use tom_tools::tools::bash::BashToolOptions;
     let default = std::env::var("TOM_BASH_TIMEOUT")
         .ok()
@@ -2478,6 +2523,7 @@ pub fn bash_options() -> tom_tools::tools::bash::BashToolOptions {
         default_timeout: Some(default),
         shell: settings.shell_path.as_deref().map(shell_override_for),
         prepare: None,
+        truncation_policy,
     }
 }
 
@@ -2516,7 +2562,11 @@ fn shell_override_for(path: &str) -> tom_tools::env::ShellOverride {
     ShellOverride { program, args }
 }
 
-fn build_tools(ctx: &ExecutionToolContext, args: &Args) -> Vec<HarnessTool> {
+fn build_tools(
+    ctx: &ExecutionToolContext,
+    args: &Args,
+    truncation_policy: Option<tom_ai::TruncationPolicy>,
+) -> Vec<HarnessTool> {
     if args.no_tools {
         return Vec::new();
     }
@@ -2528,6 +2578,10 @@ fn build_tools(ctx: &ExecutionToolContext, args: &Args) -> Vec<HarnessTool> {
     // outcome unknown — everything else must stay `Never`, because replaying
     // `bash`/`write`/`edit` would duplicate a side effect. `HarnessTool::new`
     // already defaults to `Never`, so this is opt-in per read-only tool.
+    // Sessions outlive a single `bash` call, so both tools have to address the
+    // same registry. Built here so `--tools`/`--exclude-tools` and the replay
+    // policy see them like any other builtin.
+    let bash_sessions = Arc::new(tom_tools::pty_session::SessionRegistry::new());
     let mut all: Vec<(&'static str, HarnessTool)> = vec![
         (
             "read",
@@ -2537,6 +2591,7 @@ fn build_tools(ctx: &ExecutionToolContext, args: &Args) -> Vec<HarnessTool> {
                     image_processor: Some(Arc::new(
                         tom_tools::image_processing::InlineImageProcessor,
                     )),
+                    truncation_policy,
                     ..Default::default()
                 }),
             ))
@@ -2544,13 +2599,27 @@ fn build_tools(ctx: &ExecutionToolContext, args: &Args) -> Vec<HarnessTool> {
         ),
         (
             "bash",
-            HarnessTool::new(create_bash_tool(ctx, Some(bash_options()))),
+            HarnessTool::new(tom_tools::create_bash_tool_with_sessions(
+                ctx,
+                Some(bash_options_with(truncation_policy)),
+                Arc::clone(&bash_sessions),
+            )),
+        ),
+        (
+            tom_tools::BASH_SESSION_TOOL_NAME,
+            HarnessTool::new(tom_tools::create_bash_session_tool(Arc::clone(
+                &bash_sessions,
+            ))),
         ),
         ("edit", HarnessTool::new(create_edit_tool(ctx))),
         ("write", HarnessTool::new(create_write_tool(ctx))),
         (
             "docs",
             HarnessTool::new(create_docs_tool()).with_replay(ToolReplay::Safe),
+        ),
+        (
+            "update_plan",
+            HarnessTool::new(tom_tools::create_update_plan_tool()),
         ),
     ];
 
@@ -4189,7 +4258,7 @@ mod tests {
         let env_dyn: Arc<dyn tom_tools::ExecutionEnv> = env.clone();
         let mut_env: Arc<dyn tom_tools::MutatingEnv> = env.clone();
         let context = ExecutionToolContext::new(env_dyn, Some(mut_env));
-        let tools = build_tools(&context, &Args::default());
+        let tools = build_tools(&context, &Args::default(), None);
 
         let replay_of = |name: &str| {
             tools
@@ -4222,7 +4291,7 @@ mod tests {
         let env_dyn: Arc<dyn tom_tools::ExecutionEnv> = env.clone();
         let mut_env: Arc<dyn tom_tools::MutatingEnv> = env.clone();
         let context = ExecutionToolContext::new(env_dyn, Some(mut_env));
-        let names: Vec<String> = build_tools(&context, &Args::default())
+        let names: Vec<String> = build_tools(&context, &Args::default(), None)
             .iter()
             .map(|tool| tool.tool.schema().name.clone())
             .collect();

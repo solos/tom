@@ -1840,6 +1840,7 @@ pub(super) fn save_provider_from_form(form: &ProviderFormState) -> Result<String
             input: None,
             headers: None,
             compat: None,
+            truncation_policy: None,
         }]
     };
     let provider = crate::config::ProviderConfig {

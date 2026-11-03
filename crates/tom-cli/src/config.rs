@@ -957,6 +957,7 @@ mod tests {
             input: None,
             headers: None,
             compat: None,
+            truncation_policy: None,
         }
     }
 
@@ -1221,6 +1222,7 @@ mod tests {
                 input: None,
                 headers: None,
                 compat: None,
+                truncation_policy: None,
             }],
         };
         let models = provider_to_models("gateway", &cfg).expect("anthropic-compatible");
@@ -1506,6 +1508,7 @@ mod tests {
                 input: None,
                 headers: None,
                 compat: None,
+                truncation_policy: None,
             }],
         };
         let models = provider_to_models("tom-fake-provider", &cfg).unwrap();

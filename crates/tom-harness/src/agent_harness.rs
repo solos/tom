@@ -672,6 +672,7 @@ struct HarnessInner {
     thinking_level: ThinkingLevel,
     active_tool_names: Vec<String>,
     tools: Vec<HarnessTool>,
+    tools_budget_tokens: Option<usize>,
     resources: AgentHarnessResources,
     stream_options: AgentHarnessStreamOptions,
     retry: RetryPolicy,
@@ -892,6 +893,7 @@ impl AgentHarness {
             thinking_level: options.thinking_level,
             active_tool_names: options.active_tool_names,
             tools: options.tools,
+            tools_budget_tokens: None,
             resources: options.resources,
             stream_options: options.stream_options,
             retry: options.retry,
@@ -2075,6 +2077,18 @@ impl AgentHarness {
             .collect()
     }
 
+    /// The tools that would be declared on the next provider request.
+    ///
+    /// Differs from [`Self::active_tools_for_nested_calls`], which deliberately
+    /// includes deferred tools: those are reachable by a script but are *not*
+    /// declared to the model. This is the declared set, with the declaration
+    /// budget already applied, so a front end can show exactly what the next
+    /// request will carry.
+    pub fn declared_tools(&self) -> HarnessResult<Vec<Arc<dyn AgentTool>>> {
+        let snap = self.snapshot_config()?;
+        Ok(self.active_tools_with_search(&snap.tools, &snap.active_tool_names))
+    }
+
     /// The tools a nested call (`codemode`) may reach: the declared set plus every
     /// deferred tool, minus the caller itself.
     ///
@@ -2192,6 +2206,7 @@ impl AgentHarness {
             cache_retention: snapshot.stream_options.cache_retention.unwrap_or_default(),
             session_id: Some(self.session_id()),
             signal,
+            tools_budget_tokens: snapshot.tools_budget_tokens,
         }
     }
 
@@ -2201,6 +2216,20 @@ impl AgentHarness {
         inner.tools.iter().any(|tool| {
             let name = &tool.tool.schema().name;
             name != tom_tools::TOOL_SEARCH_TOOL_NAME && !inner.active_tool_names.contains(name)
+        })
+    }
+
+    /// Report the live context budget. Used by the `get_context_remaining` tool
+    /// so the model can decide when to compact instead of waiting for the host
+    /// threshold. The token count is the same estimator the compaction check
+    /// uses, so the two never disagree about how full the window is.
+    pub async fn context_usage(&self) -> HarnessResult<tom_tools::ContextUsage> {
+        let snap = self.snapshot_config()?;
+        let context = self.branch_context_default().await?;
+        let used_tokens = crate::compaction::estimate_context_tokens(&context.messages).tokens;
+        Ok(tom_tools::ContextUsage {
+            used_tokens,
+            context_window: snap.model.context_window as i64,
         })
     }
 
@@ -2725,6 +2754,35 @@ impl AgentHarness {
             return Err(HarnessError::closed());
         }
         Ok(inner.tools.clone())
+    }
+
+    /// Cap the tool-declaration payload, in approximate tokens.
+    ///
+    /// Every provider request re-sends the full declaration set, so its size is
+    /// a fixed per-turn cost paid before the model reads anything. When that set
+    /// grows (a busy MCP server, many extension tools), this trims
+    /// *descriptions* until it fits — never names or parameter schemas, because
+    /// those are what make a call correct. `None` restores the default of
+    /// sending declarations exactly as the tools define them.
+    ///
+    /// A setter rather than an `AgentHarnessOptions` field: it is a policy knob
+    /// a front end turns after creation, like `set_active_tools`, and adding a
+    /// field would churn every existing options literal for no benefit.
+    ///
+    /// This is deliberately not a `world-state diff`: tom replays statelessly,
+    /// so omitting an unchanged declaration would hide the tool rather than save
+    /// a token. See `tom_tools::tools_budget` for the reasoning.
+    pub fn set_tools_budget(&self, budget_tokens: Option<usize>) {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.tools_budget_tokens = budget_tokens;
+    }
+
+    /// The current declaration budget, if any.
+    pub fn tools_budget(&self) -> Option<usize> {
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .tools_budget_tokens
     }
 
     /// `setTools(tools, activeNames?)`. Mirrors TS `AgentHarness.setTools` —
@@ -4015,6 +4073,7 @@ impl AgentHarness {
             thinking_level: inner.thinking_level,
             active_tool_names: inner.active_tool_names.clone(),
             tools: inner.tools.clone(),
+            tools_budget_tokens: inner.tools_budget_tokens,
             system_prompt: inner.system_prompt.clone(),
             resources: inner.resources.clone(),
             stream_options: inner.stream_options.clone(),
@@ -4042,6 +4101,36 @@ impl AgentHarness {
     /// Deferred tools have to be *registered* to be loadable later, but they
     /// must not be declared to the model, so they stay out of the active set
     /// until [`AgentHarness::load_tools`] admits them.
+    /// Apply the declaration budget, returning the same tools with shortened
+    /// descriptions when the set does not fit.
+    ///
+    /// The tools themselves are kept: dropping one would make it uncallable,
+    /// which trades a token problem for a capability problem. Only the
+    /// description text is shortened, and only as much as the budget requires.
+    fn trim_tool_declarations(
+        tools: Vec<Arc<dyn AgentTool>>,
+        budget_tokens: usize,
+    ) -> Vec<Arc<dyn AgentTool>> {
+        let declared: Vec<tom_ai::types::Tool> = tools.iter().map(|t| t.schema().clone()).collect();
+        let (trimmed, changed) = tom_tools::apply_tools_budget(&declared, budget_tokens);
+        if changed == 0 {
+            return tools;
+        }
+        // Only the description differs, so the tool identity is preserved and a
+        // wrapper can serve the shortened schema.
+        tools
+            .into_iter()
+            .zip(trimmed)
+            .map(|(tool, schema)| {
+                if schema.description == tool.schema().description {
+                    tool
+                } else {
+                    crate::tool_schema_override::with_schema(tool, schema)
+                }
+            })
+            .collect()
+    }
+
     fn active_tools(tools: &[HarnessTool], active: &[String]) -> Vec<Arc<dyn AgentTool>> {
         if active.is_empty() {
             return tools
@@ -4061,7 +4150,25 @@ impl AgentHarness {
     /// A `tool_search` tool is only projected when there is something to search
     /// (a deferred tool exists), so a session with no MCP servers and no deferral
     /// is unchanged: no extra tool, no extra declaration, no extra token.
+    /// The tools declared on the next provider request.
+    ///
+    /// This is the single choke point: every declaration — the run's own, the
+    /// nested-call surface, and the mid-turn refresh after `tool_search` — is
+    /// produced here, so the declaration budget is applied exactly once and
+    /// cannot be bypassed by a path that forgot about it.
     fn active_tools_with_search(
+        &self,
+        tools: &[HarnessTool],
+        active: &[String],
+    ) -> Vec<Arc<dyn AgentTool>> {
+        let declared = self.active_tools_with_search_unbudgeted(tools, active);
+        match self.tools_budget() {
+            Some(budget) => Self::trim_tool_declarations(declared, budget),
+            None => declared,
+        }
+    }
+
+    fn active_tools_with_search_unbudgeted(
         &self,
         tools: &[HarnessTool],
         active: &[String],
@@ -4946,6 +5053,8 @@ impl AgentHarness {
             &snap.resources,
             &snap.active_tool_names,
         );
+        // The declaration budget is applied inside `active_tools_with_search`,
+        // the one place every declaration path goes through.
         let tools = self.active_tools_with_search(&snap.tools, &snap.active_tool_names);
 
         let mut agent_context = AgentContext {
@@ -5166,6 +5275,7 @@ impl AgentHarness {
             // `sessionId: this.session.id`); without it every turn may miss.
             session_id: Some(self.session.storage().metadata().id),
             signal: signal.clone(),
+            tools_budget_tokens: snap.tools_budget_tokens,
         };
 
         // Deliver accepted context before compaction and again after turn-end
@@ -5702,6 +5812,7 @@ struct ConfigSnapshot {
     thinking_level: ThinkingLevel,
     active_tool_names: Vec<String>,
     tools: Vec<HarnessTool>,
+    tools_budget_tokens: Option<usize>,
     system_prompt: Option<String>,
     resources: AgentHarnessResources,
     stream_options: AgentHarnessStreamOptions,

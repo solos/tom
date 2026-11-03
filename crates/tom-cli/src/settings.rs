@@ -187,6 +187,14 @@ pub struct Settings {
     /// are enabled. When present, only the named tools are enabled.
     #[serde(default)]
     pub default_tools: Option<Vec<String>>,
+    /// Ceiling on the tool-declaration payload, in approximate tokens.
+    ///
+    /// Declarations are re-sent with every request, so their size is a fixed
+    /// per-turn cost. When a namespace grows past this, descriptions are
+    /// trimmed (names and parameter schemas never are) so the model still knows
+    /// every tool it can call. Unset leaves the declarations untouched.
+    #[serde(default)]
+    pub tools_budget_tokens: Option<usize>,
     /// Hide the body of thinking blocks while retaining a compact label.
     #[serde(default)]
     pub hide_thinking_block: Option<bool>,
