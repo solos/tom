@@ -2766,7 +2766,7 @@ dependencies = [
 
 [[package]]
 name = "tom-agent"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -2783,7 +2783,7 @@ dependencies = [
 
 [[package]]
 name = "tom-ai"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -2806,7 +2806,7 @@ dependencies = [
 
 [[package]]
 name = "tom-cli"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "arboard",
  "async-trait",
@@ -2852,7 +2852,7 @@ dependencies = [
 
 [[package]]
 name = "tom-extensions"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-trait",
  "dirs",
@@ -2873,7 +2873,7 @@ dependencies = [
 
 [[package]]
 name = "tom-harness"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -2896,7 +2896,7 @@ dependencies = [
 
 [[package]]
 name = "tom-mcp"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -2914,7 +2914,7 @@ dependencies = [
 
 [[package]]
 name = "tom-plugin-sdk"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "ciborium",
  "libc",
@@ -2928,7 +2928,7 @@ dependencies = [
 
 [[package]]
 name = "tom-runtime"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-trait",
  "indexmap 2.11.4",
@@ -2943,7 +2943,7 @@ dependencies = [
 
 [[package]]
 name = "tom-telemetry"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-trait",
  "serde",
@@ -2953,7 +2953,7 @@ dependencies = [
 
 [[package]]
 name = "tom-tools"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -2988,7 +2988,7 @@ dependencies = [
 
 [[package]]
 name = "tom-tui"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "base64",
  "crossterm",

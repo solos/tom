@@ -30,9 +30,9 @@ edition = "2021"
 rust-version = "1.88"
 license = "MIT"
 repository = "https://github.com/solos/tom"
-homepage = "https://tom.laofu.online/"
-version = "0.16.0"
-authors = ["BigFish <fuwei201473@gmail.com>"]
+homepage = "https://github.com/solos/tom"
+version = "0.17.0"
+authors = ["solos <lxl1217@gmail.com>"]
 
 [workspace.dependencies]
 # Async runtime
@@ -73,20 +73,20 @@ dirs = "5"
 rpassword = "7"
 
 # tom internal crates (package names and directories both use the `tom-` prefix).
-tom-telemetry = { path = "crates/tom-telemetry", version = "0.16.0" }
-tom-ai = { path = "crates/tom-ai", version = "0.16.0" }
-tom-agent = { path = "crates/tom-agent", version = "0.16.0" }
-tom-tools = { path = "crates/tom-tools", version = "0.16.0" }
-tom-harness = { path = "crates/tom-harness", version = "0.16.0" }
+tom-telemetry = { path = "crates/tom-telemetry", version = "0.17.0" }
+tom-ai = { path = "crates/tom-ai", version = "0.17.0" }
+tom-agent = { path = "crates/tom-agent", version = "0.17.0" }
+tom-tools = { path = "crates/tom-tools", version = "0.17.0" }
+tom-harness = { path = "crates/tom-harness", version = "0.17.0" }
 
-tom-runtime = { path = "crates/tom-runtime", version = "0.16.0" }
+tom-runtime = { path = "crates/tom-runtime", version = "0.17.0" }
 
-tom-tui = { path = "crates/tom-tui", version = "0.16.0" }
+tom-tui = { path = "crates/tom-tui", version = "0.17.0" }
 
-tom-plugin-sdk = { path = "crates/tom-plugin-sdk", version = "0.16.0" }
-tom-extensions = { path = "crates/tom-extensions", version = "0.16.0" }
+tom-plugin-sdk = { path = "crates/tom-plugin-sdk", version = "0.17.0" }
+tom-extensions = { path = "crates/tom-extensions", version = "0.17.0" }
 
-tom-mcp = { path = "crates/tom-mcp", version = "0.16.0" }
+tom-mcp = { path = "crates/tom-mcp", version = "0.17.0" }
 
 [profile.release]
 lto = "thin"
